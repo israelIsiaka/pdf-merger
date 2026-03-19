@@ -36,8 +36,8 @@ def build_windows_exe():
 
     # Note: must be run ON Windows to produce a valid .exe
     ico_path = os.path.join(PROJECT_DIR, "Logo.ico")
-    # os.pathsep is ':' on Unix, ';' on Windows - exactly what PyInstaller expects
-    src_data = f"src{os.pathsep}src"
+    # Use absolute source path so PyInstaller doesn't resolve it relative to --specpath
+    src_data = f"{os.path.join(PROJECT_DIR, 'src')}{os.pathsep}src"
 
     cmd = [
         sys.executable, "-m", "PyInstaller",

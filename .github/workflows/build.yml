@@ -6,6 +6,9 @@ on:
       - "v*"
   workflow_dispatch:   # allow manual runs from the GitHub UI
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true   # silence Node.js 20 deprecation warnings
+
 jobs:
   # ── macOS → produces PDF-Merger.dmg ────────────────────────────────────────
   build-macos:
