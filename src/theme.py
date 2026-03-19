@@ -12,7 +12,7 @@ ThemeType = Literal["light", "dark"]
 class ThemeManager:
     """Manages themes for different platforms and appearance modes."""
 
-    # ── macOS — Apple HIG ─────────────────────────────────────────────────────
+    # -- macOS — Apple HIG ─────────────────────────────────────────────────────
     MACOS_LIGHT = {
         "bg":                 "#F5F5F7",
         "fg":                 "#1D1D1F",
@@ -70,7 +70,7 @@ class ThemeManager:
         "font_mono":          "Menlo",
     }
 
-    # ── Windows — Fluent Design (Windows 11) ─────────────────────────────────
+    # -- Windows — Fluent Design (Windows 11) ─────────────────────────────────
     WINDOWS_LIGHT = {
         "bg":                 "#F3F3F3",
         "fg":                 "#1B1B1B",
@@ -121,7 +121,7 @@ class ThemeManager:
         "font_mono":          "Consolas",
     }
 
-    # ── Linux — GNOME HIG ─────────────────────────────────────────────────────
+    # -- Linux — GNOME HIG ─────────────────────────────────────────────────────
     LINUX_LIGHT = {
         "bg":                 "#FAFAFA",
         "fg":                 "#2E2E2E",

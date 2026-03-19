@@ -10,7 +10,7 @@ from typing import Callable, Dict, List, Optional, Tuple
 from pypdf import PdfWriter
 
 
-# ── file-info helpers ─────────────────────────────────────────────────────────
+# -- file-info helpers ─────────────────────────────────────────────────────────
 
 def _fmt_size(b: int) -> str:
     if b < 1024:
@@ -24,11 +24,11 @@ def _fmt_size(b: int) -> str:
 
 def _fmt_date(ts: float) -> str:
     if not ts:
-        return "—"
+        return "-"
     return datetime.datetime.fromtimestamp(ts).strftime("%b %d, %Y %I:%M %p")
 
 
-# ── main class ────────────────────────────────────────────────────────────────
+# -- main class ────────────────────────────────────────────────────────────────
 
 class PDFMerger:
     """Handles PDF merging operations."""
@@ -148,7 +148,7 @@ class PDFMerger:
             successful = total - len(errors)
             message = f"Successfully merged {successful} of {total} files."
             if errors:
-                details = "\n".join(f"  • {n}: {e}" for n, e in errors)
+                details = "\n".join(f"  - {n}: {e}" for n, e in errors)
                 message += f"\n\nSkipped {len(errors)} file(s):\n{details}"
             return True, message
 

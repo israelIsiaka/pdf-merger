@@ -18,7 +18,7 @@ except ImportError:
     HAS_PIL = False
 
 
-# ── Custom button widget ──────────────────────────────────────────────────────
+# -- Custom button widget ──────────────────────────────────────────────────────
 
 class _FlatButton(tk.Frame):
     """
@@ -79,7 +79,7 @@ class _FlatButton(tk.Frame):
             super().config(**kwargs)
 
 
-# ── Main application window ───────────────────────────────────────────────────
+# -- Main application window ───────────────────────────────────────────────────
 
 class PDFMergerApp(tk.Tk):
     """Main application window for PDF Merger."""
@@ -100,7 +100,7 @@ class PDFMergerApp(tk.Tk):
         self._make_pdf_icon()
         self._build_ui()
 
-    # ── Icon helpers ──────────────────────────────────────────────────────────
+    # -- Icon helpers ──────────────────────────────────────────────────────────
 
     def _load_icon(self):
         """Load application window icon (.icns preferred, .png fallback)."""
@@ -157,7 +157,7 @@ class PDFMergerApp(tk.Tk):
         except Exception:
             self._pdf_icon = None
 
-    # ── UI construction ───────────────────────────────────────────────────────
+    # -- UI construction ───────────────────────────────────────────────────────
 
     def _build_ui(self):
         self._ff = self.theme.get_font("font_family")
@@ -179,7 +179,7 @@ class PDFMergerApp(tk.Tk):
         self._build_progress_frame(main)
         self._build_merge_button(main)
 
-    # ── button factories ──────────────────────────────────────────────────────
+    # -- button factories ──────────────────────────────────────────────────────
 
     def _primary_kw(self, size=11, padx=14, pady=8, width=0) -> dict:
         """Blue accent button (primary action only)."""
@@ -209,23 +209,23 @@ class PDFMergerApp(tk.Tk):
 
         kw = self._secondary_kw()
         _FlatButton(row, text="+  Add PDFs",        command=self._add_files,       **kw).pack(side="left", padx=(0, 8))
-        _FlatButton(row, text="⊞  Add Folder",      command=self._add_folder,      **kw).pack(side="left", padx=(0, 8))
-        _FlatButton(row, text="⊠  Remove Selected", command=self._remove_selected, **kw).pack(side="left", padx=(0, 8))
-        _FlatButton(row, text="⊠  Clear All",       command=self._clear_all,       **kw).pack(side="left")
+        _FlatButton(row, text="+  Add Folder",      command=self._add_folder,      **kw).pack(side="left", padx=(0, 8))
+        _FlatButton(row, text="-  Remove Selected", command=self._remove_selected, **kw).pack(side="left", padx=(0, 8))
+        _FlatButton(row, text="-  Clear All",       command=self._clear_all,       **kw).pack(side="left")
 
     def _build_file_list(self, parent):
         container = tk.Frame(parent, bg=self.theme.get_color("bg"))
         container.pack(fill="both", expand=True, pady=(0, 12))
 
-        # ── Reorder buttons — pack RIGHT first so border doesn't steal the space
+        # -- Reorder buttons — pack RIGHT first so border doesn't steal the space
         reorder = tk.Frame(container, bg=self.theme.get_color("bg"))
         reorder.pack(side="right", fill="y", padx=(10, 0))
 
         kw = self._secondary_kw(size=10, padx=10, pady=8, width=7)
-        _FlatButton(reorder, text="↑  Up",   command=self._move_up,   **kw).pack(pady=(0, 6))
-        _FlatButton(reorder, text="↓  Down", command=self._move_down, **kw).pack()
+        _FlatButton(reorder, text="^  Up",   command=self._move_up,   **kw).pack(pady=(0, 6))
+        _FlatButton(reorder, text="v  Down", command=self._move_down, **kw).pack()
 
-        # ── Treeview (left) — packed after reorder so it fills remaining space
+        # -- Treeview (left) — packed after reorder so it fills remaining space
         border = tk.Frame(container, bg=self.theme.get_color("border"), bd=1)
         border.pack(side="left", fill="both", expand=True)
 
@@ -309,7 +309,7 @@ class PDFMergerApp(tk.Tk):
         ).pack(side="left", fill="x", expand=True, padx=(0, 8))
 
         _FlatButton(
-            row, text="⊞  Browse...", command=self._browse_output,
+            row, text="Browse...", command=self._browse_output,
             **self._secondary_kw(size=11, padx=14, pady=6),
         ).pack(side="left")
 
@@ -343,7 +343,7 @@ class PDFMergerApp(tk.Tk):
         )
         self.merge_btn.pack(fill="x")
 
-    # ── callbacks ─────────────────────────────────────────────────────────────
+    # -- callbacks ─────────────────────────────────────────────────────────────
 
     def _add_files(self):
         paths = filedialog.askopenfilenames(
@@ -395,7 +395,7 @@ class PDFMergerApp(tk.Tk):
         if path:
             self.output_var.set(path)
 
-    # ── merge workflow ────────────────────────────────────────────────────────
+    # -- merge workflow ────────────────────────────────────────────────────────
 
     def _start_merge(self):
         if not self.merger.get_file_count():
@@ -428,13 +428,13 @@ class PDFMergerApp(tk.Tk):
         self.merge_btn.config(state="normal")
         self.progress["value"] = 100 if success else 0
         if success:
-            self._set_status(f"✓ Done! Saved to: {self.output_var.get()}")
+            self._set_status(f"Done! Saved to: {self.output_var.get()}")
             messagebox.showinfo("Success", message)
         else:
-            self._set_status("✗ Merge failed.", error=True)
+            self._set_status("Merge failed.", error=True)
             messagebox.showerror("Error", message)
 
-    # ── helpers ───────────────────────────────────────────────────────────────
+    # -- helpers ───────────────────────────────────────────────────────────────
 
     def _selected_indices(self) -> list:
         """Return sorted list of row indices for the current treeview selection."""

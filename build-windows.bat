@@ -7,9 +7,9 @@ REM Download from: https://nsis.sourceforge.io/
 REM Or: choco install nsis
 
 echo.
-echo ════════════════════════════════════════
+echo ========================================
 echo PDF Merger - Windows Build
-echo ════════════════════════════════════════
+echo ========================================
 echo.
 
 REM Check for Python
@@ -25,12 +25,12 @@ if errorlevel 1 (
 REM Activate virtual environment if it exists
 if exist ".venv\Scripts\activate.bat" (
     call .venv\Scripts\activate.bat
-    echo ✓ Virtual environment activated
+    echo Virtual environment activated
 ) else (
     echo WARNING: Virtual environment not found. Creating one...
     python -m venv .venv
     call .venv\Scripts\activate.bat
-    echo ✓ Virtual environment created and activated
+    echo Virtual environment created and activated
 )
 
 REM Install/upgrade dependencies
@@ -39,7 +39,7 @@ echo Installing dependencies...
 pip install --upgrade pip pyinstaller >nul 2>&1
 pip install -r requirements.txt >nul 2>&1
 
-echo ✓ Dependencies installed
+echo Dependencies installed
 echo.
 
 REM Build options menu
@@ -57,7 +57,7 @@ if "%choice%"=="1" (
     python build.py windows
     if errorlevel 1 goto error
     echo.
-    echo ✓ Build complete! Check dist\windows\PDF Merger\
+    echo Build complete! Check dist\windows\PDF Merger\
     echo.
 ) else if "%choice%"=="2" (
     echo.
@@ -65,7 +65,7 @@ if "%choice%"=="1" (
     python build.py windows-installer
     if errorlevel 1 goto error
     echo.
-    echo ✓ Build complete! Check dist\PDF-Merger-Installer.exe
+    echo Build complete! Check dist\PDF-Merger-Installer.exe
     echo.
 ) else if "%choice%"=="3" (
     echo.
@@ -77,7 +77,7 @@ if "%choice%"=="1" (
     python build.py windows-installer
     if errorlevel 1 goto error
     echo.
-    echo ✓ Both builds complete!
+    echo Both builds complete!
     echo   Portable: dist\windows\PDF Merger\
     echo   Installer: dist\PDF-Merger-Installer.exe
     echo.
