@@ -37,19 +37,28 @@ def build_windows_exe():
     print("🏗️  Building PDF Merger Windows Application (.exe)...")
     
     # Simple PyInstaller command that works cross-platform
+    # Note: must be run ON Windows to produce a valid .exe
+    ico_path = os.path.join(PROJECT_DIR, "Logo.ico")
+    # os.pathsep is ':' on Unix, ';' on Windows — exactly what PyInstaller expects
+    src_data = f"src{os.pathsep}src"
+
     cmd = [
         sys.executable, "-m", "PyInstaller",
         "--name", "PDF Merger",
-        "--onedir",  # Use onedir instead of onefile for better compatibility
-        "--windowed",  # Hide console window on Windows
-        f"--distpath={os.path.join(DIST_DIR, 'windows')}",
-        f"--workpath={os.path.join(BUILD_DIR, 'windows')}",
-        f"--specpath={os.path.join(BUILD_DIR, 'windows')}",
+        "--onedir",
+        "--windowed",
+        "--add-data", src_data,
         "--hidden-import=PIL",
         "--hidden-import=pypdf",
         "--collect-all=PIL",
-        "merge_pdfs.py"
+        f"--distpath={os.path.join(DIST_DIR, 'windows')}",
+        f"--workpath={os.path.join(BUILD_DIR, 'windows')}",
+        f"--specpath={os.path.join(BUILD_DIR, 'windows')}",
+        "merge_pdfs.py",
     ]
+
+    if os.path.exists(ico_path):
+        cmd.insert(-1, f"--icon={ico_path}")
     
     result = subprocess.run(cmd, cwd=PROJECT_DIR)
     

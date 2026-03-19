@@ -33,7 +33,7 @@ $VENV_PATH -m PyInstaller \
     --name="PDF Merger" \
     --windowed \
     --onefile \
-    --icon="Logo.png" \
+    --icon="Logo.ico" \
     --add-data="src:src" \
     --distpath="dist/windows" \
     --buildpath="build/windows" \
