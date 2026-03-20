@@ -6,7 +6,8 @@ __author__ = "PDF Merger Contributors"
 
 from .app import PDFMergerApp, main
 from .merger import PDFMerger
+from .history import HistoryManager
 from .theme import ThemeManager
 from .utils import PlatformInfo
 
-__all__ = ["PDFMergerApp", "main", "PDFMerger", "ThemeManager", "PlatformInfo"]
+__all__ = ["PDFMergerApp", "main", "PDFMerger", "HistoryManager", "ThemeManager", "PlatformInfo"]

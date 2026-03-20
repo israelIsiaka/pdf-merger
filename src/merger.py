@@ -7,7 +7,7 @@ import os
 from collections import Counter
 from typing import Callable, Dict, List, Optional, Tuple
 
-from pypdf import PdfWriter
+from pypdf import PdfReader, PdfWriter
 
 
 # -- file-info helpers ─────────────────────────────────────────────────────────
@@ -108,13 +108,29 @@ class PDFMerger:
             })
         return result
 
+    def check_encrypted_files(self) -> List[str]:
+        """Return list of file paths that are password-protected."""
+        encrypted = []
+        for fp in self.pdf_files:
+            try:
+                reader = PdfReader(fp)
+                if reader.is_encrypted:
+                    encrypted.append(fp)
+            except Exception:
+                pass
+        return encrypted
+
     def merge(
         self,
         output_path: str,
         progress_callback: Optional[Callable[[int], None]] = None,
+        passwords: Optional[Dict[str, str]] = None,
+        output_password: Optional[str] = None,
     ) -> Tuple[bool, str]:
         """
         Merge PDF files to output_path.
+        passwords: dict mapping filepath -> password for encrypted inputs.
+        output_password: optional password to apply to the merged output.
         progress_callback receives int values 0-100.
         Returns (success: bool, message: str).
         """
@@ -130,7 +146,13 @@ class PDFMerger:
 
             for i, filepath in enumerate(self.pdf_files):
                 try:
-                    writer.append(filepath)
+                    pwd = (passwords or {}).get(filepath)
+                    if pwd:
+                        reader = PdfReader(filepath)
+                        reader.decrypt(pwd)
+                        writer.append(reader)
+                    else:
+                        writer.append(filepath)
                 except Exception as e:
                     errors.append((os.path.basename(filepath), str(e)))
                 if progress_callback:
@@ -138,6 +160,9 @@ class PDFMerger:
 
             if len(writer.pages) == 0:
                 return False, "No pages could be read. All files may be corrupted or empty."
+
+            if output_password:
+                writer.encrypt(output_password)
 
             with open(output_path, "wb") as f:
                 writer.write(f)
@@ -154,3 +179,64 @@ class PDFMerger:
 
         except Exception as e:
             return False, f"Failed to merge PDFs: {str(e)}"
+
+    def protect_pdf(
+        self, input_path: str, output_path: str, password: str
+    ) -> Tuple[bool, str]:
+        """Apply password protection to a PDF file."""
+        try:
+            reader = PdfReader(input_path)
+            writer = PdfWriter()
+            writer.append(reader)
+            writer.encrypt(password)
+            with open(output_path, "wb") as f:
+                writer.write(f)
+            return True, f"PDF protected and saved to: {output_path}"
+        except Exception as e:
+            return False, f"Failed to protect PDF: {str(e)}"
+
+    def create_peep(
+        self,
+        input_path: str,
+        free_page_count: int,
+        output_preview: str,
+        output_full: str,
+        password: str,
+    ) -> Tuple[bool, str]:
+        """
+        Create a peep pair from input_path:
+        - output_preview: first free_page_count pages, no password (freely shareable)
+        - output_full: all pages, password-protected (full content)
+        """
+        try:
+            reader = PdfReader(input_path)
+            total = len(reader.pages)
+            if total == 0:
+                return False, "The selected PDF has no pages."
+
+            free = min(max(1, free_page_count), total)
+
+            # Preview: first N pages, no encryption
+            preview_writer = PdfWriter()
+            for i in range(free):
+                preview_writer.add_page(reader.pages[i])
+            with open(output_preview, "wb") as f:
+                preview_writer.write(f)
+
+            # Full: all pages, encrypted
+            full_writer = PdfWriter()
+            full_writer.append(reader)
+            full_writer.encrypt(password)
+            with open(output_full, "wb") as f:
+                full_writer.write(f)
+
+            locked = total - free
+            return True, (
+                f"Peep files created successfully.\n\n"
+                f"Preview: {os.path.basename(output_preview)}\n"
+                f"  {free} page(s) freely viewable\n\n"
+                f"Full: {os.path.basename(output_full)}\n"
+                f"  {total} page(s) total, {locked} page(s) password-protected"
+            )
+        except Exception as e:
+            return False, f"Failed to create peep files: {str(e)}"

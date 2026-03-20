@@ -1,0 +1,80 @@
+"""
+History manager for PDF Merger.
+Tracks past merge and protect operations.
+"""
+import datetime
+import json
+import os
+from typing import List, Dict
+
+HISTORY_FILE = os.path.join(os.path.expanduser("~"), ".pdf_merger_history.json")
+MAX_ENTRIES = 100
+
+
+class HistoryManager:
+    """Loads and persists merge/protect operation history."""
+
+    def __init__(self):
+        self._entries: List[Dict] = self._load()
+
+    def _load(self) -> List[Dict]:
+        try:
+            with open(HISTORY_FILE, encoding="utf-8") as f:
+                data = json.load(f)
+                if isinstance(data, list):
+                    return data
+        except Exception:
+            pass
+        return []
+
+    def _save(self):
+        try:
+            with open(HISTORY_FILE, "w", encoding="utf-8") as f:
+                json.dump(self._entries, f, indent=2)
+        except Exception:
+            pass
+
+    def add_merge(self, output_path: str, source_count: int, password_protected: bool):
+        """Record a merge operation."""
+        self._entries.insert(0, {
+            "type": "Merge",
+            "output": output_path,
+            "sources": source_count,
+            "timestamp": datetime.datetime.now().isoformat(timespec="seconds"),
+            "password_protected": password_protected,
+        })
+        self._entries = self._entries[:MAX_ENTRIES]
+        self._save()
+
+    def add_protect(self, output_path: str):
+        """Record a protect operation."""
+        self._entries.insert(0, {
+            "type": "Protect",
+            "output": output_path,
+            "sources": 1,
+            "timestamp": datetime.datetime.now().isoformat(timespec="seconds"),
+            "password_protected": True,
+        })
+        self._entries = self._entries[:MAX_ENTRIES]
+        self._save()
+
+    def add_peep(self, preview_path: str, full_path: str, free_pages: int):
+        """Record a peep operation."""
+        self._entries.insert(0, {
+            "type": "Peep",
+            "output": full_path,
+            "preview": preview_path,
+            "sources": 1,
+            "free_pages": free_pages,
+            "timestamp": datetime.datetime.now().isoformat(timespec="seconds"),
+            "password_protected": True,
+        })
+        self._entries = self._entries[:MAX_ENTRIES]
+        self._save()
+
+    def get_entries(self) -> List[Dict]:
+        return list(self._entries)
+
+    def clear(self):
+        self._entries = []
+        self._save()

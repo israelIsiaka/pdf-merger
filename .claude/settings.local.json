@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find /Users/user/pdf-merger -type d -not -path */.* -not -path */build* -not -path */dist* -not -path */__pycache__* -not -path */.venv* -maxdepth 3)",
+      "Bash(python -c \"from src.app import PDFMergerApp; from src.merger import PDFMerger; from src.history import HistoryManager; print\\(''imports OK''\\)\")",
+      "Bash(python -c \":*)"
+    ]
+  }
+}

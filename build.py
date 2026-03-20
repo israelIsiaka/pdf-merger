@@ -36,6 +36,7 @@ def build_windows_exe():
 
     # Note: must be run ON Windows to produce a valid .exe
     ico_path = os.path.join(PROJECT_DIR, "Logo.ico")
+    png_path = os.path.join(PROJECT_DIR, "Logo.png")
     # Use absolute source path so PyInstaller doesn't resolve it relative to --specpath
     src_data = f"{os.path.join(PROJECT_DIR, 'src')}{os.pathsep}src"
 
@@ -46,6 +47,9 @@ def build_windows_exe():
         "--windowed",
         "--noconfirm",
         "--add-data", src_data,
+        # Bundle logo files so _load_icon() can find them at runtime via sys._MEIPASS
+        "--add-data", f"{ico_path}{os.pathsep}.",
+        "--add-data", f"{png_path}{os.pathsep}.",
         # tkinter sub-modules are not always auto-detected on Windows
         "--hidden-import=tkinter",
         "--hidden-import=tkinter.ttk",
