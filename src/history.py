@@ -35,10 +35,10 @@ class HistoryManager:
             pass
 
     def add_merge(self, output_path: str, source_count: int, password_protected: bool):
-        """Record a merge operation."""
+        """Record a merge operation. Stores only the filename, not the full path."""
         self._entries.insert(0, {
             "type": "Merge",
-            "output": output_path,
+            "output": os.path.basename(output_path),
             "sources": source_count,
             "timestamp": datetime.datetime.now().isoformat(timespec="seconds"),
             "password_protected": password_protected,
@@ -47,10 +47,10 @@ class HistoryManager:
         self._save()
 
     def add_protect(self, output_path: str):
-        """Record a protect operation."""
+        """Record a protect operation. Stores only the filename, not the full path."""
         self._entries.insert(0, {
             "type": "Protect",
-            "output": output_path,
+            "output": os.path.basename(output_path),
             "sources": 1,
             "timestamp": datetime.datetime.now().isoformat(timespec="seconds"),
             "password_protected": True,
@@ -59,11 +59,11 @@ class HistoryManager:
         self._save()
 
     def add_peep(self, preview_path: str, full_path: str, free_pages: int):
-        """Record a peep operation."""
+        """Record a peep operation. Stores only filenames, not full paths."""
         self._entries.insert(0, {
             "type": "Peep",
-            "output": full_path,
-            "preview": preview_path,
+            "output": os.path.basename(full_path),
+            "preview": os.path.basename(preview_path),
             "sources": 1,
             "free_pages": free_pages,
             "timestamp": datetime.datetime.now().isoformat(timespec="seconds"),
