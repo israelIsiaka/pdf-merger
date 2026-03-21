@@ -47,9 +47,6 @@ def build_windows_exe():
         "--windowed",
         "--noconfirm",
         "--add-data", src_data,
-        # Bundle logo files so _load_icon() can find them at runtime via sys._MEIPASS
-        "--add-data", f"{ico_path}{os.pathsep}.",
-        "--add-data", f"{png_path}{os.pathsep}.",
         # PyQt6 sub-modules are not always auto-detected on Windows
         "--hidden-import=PyQt6",
         "--hidden-import=PyQt6.QtWidgets",
@@ -63,8 +60,19 @@ def build_windows_exe():
         "merge_pdfs.py",
     ]
 
+    # Bundle whichever logo files exist so _load_icon() can find them at runtime
+    if os.path.exists(ico_path):
+        cmd.insert(-1, "--add-data")
+        cmd.insert(-1, f"{ico_path}{os.pathsep}.")
+    if os.path.exists(png_path):
+        cmd.insert(-1, "--add-data")
+        cmd.insert(-1, f"{png_path}{os.pathsep}.")
+
+    # Prefer ICO for the EXE icon; fall back to PNG (requires Pillow installed)
     if os.path.exists(ico_path):
         cmd.insert(-1, f"--icon={ico_path}")
+    elif os.path.exists(png_path):
+        cmd.insert(-1, f"--icon={png_path}")
 
     result = subprocess.run(cmd, cwd=PROJECT_DIR)
 

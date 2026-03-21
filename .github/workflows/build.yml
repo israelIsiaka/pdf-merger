@@ -79,7 +79,18 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies
-        run: pip install pypdf PyQt6 pyinstaller
+        run: pip install pypdf PyQt6 pyinstaller Pillow
+
+      - name: Generate ICO from PNG
+        run: |
+          python -c "
+          from PIL import Image
+          import os
+          if os.path.exists('Logo.png') and not os.path.exists('Logo.ico'):
+              img = Image.open('Logo.png')
+              img.save('Logo.ico', format='ICO', sizes=[(16,16),(32,32),(48,48),(64,64),(128,128),(256,256)])
+              print('Logo.ico generated')
+          "
 
       - name: Build EXE
         run: python build.py windows

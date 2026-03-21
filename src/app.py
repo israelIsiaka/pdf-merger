@@ -14,7 +14,7 @@ from PyQt6.QtWidgets import (
     QVBoxLayout, QHBoxLayout,
     QTabWidget, QLabel, QPushButton, QLineEdit,
     QTreeWidget, QTreeWidgetItem, QProgressBar,
-    QSpinBox, QFileDialog, QMessageBox,
+    QSpinBox, QComboBox, QFileDialog, QMessageBox,
     QHeaderView, QAbstractItemView, QStyle, QScrollArea,
 )
 
@@ -147,6 +147,19 @@ class PDFMergerApp(QMainWindow):
         btn_row.addStretch()
         layout.addLayout(btn_row)
 
+        # Sort order
+        sort_row = QHBoxLayout()
+        sort_row.setSpacing(8)
+        sort_lbl = self._field_label("Order:")
+        sort_row.addWidget(sort_lbl)
+        self._sort_combo = QComboBox()
+        self._sort_combo.setObjectName("sortCombo")
+        self._sort_combo.addItems(["Custom Order", "A to Z", "Z to A"])
+        self._sort_combo.currentIndexChanged.connect(self._apply_sort)
+        sort_row.addWidget(self._sort_combo)
+        sort_row.addStretch()
+        layout.addLayout(sort_row)
+
         # File list + reorder
         list_row = QHBoxLayout()
         list_row.setSpacing(10)
@@ -170,14 +183,14 @@ class PDFMergerApp(QMainWindow):
 
         reorder_col = QVBoxLayout()
         reorder_col.setSpacing(8)
-        up_btn = self._secondary_btn("Up", SP.SP_ArrowUp)
-        up_btn.setFixedWidth(96)
-        up_btn.clicked.connect(self._move_up)
-        dn_btn = self._secondary_btn("Down", SP.SP_ArrowDown)
-        dn_btn.setFixedWidth(96)
-        dn_btn.clicked.connect(self._move_down)
-        reorder_col.addWidget(up_btn)
-        reorder_col.addWidget(dn_btn)
+        self._up_btn = self._secondary_btn("Up", SP.SP_ArrowUp)
+        self._up_btn.setFixedWidth(96)
+        self._up_btn.clicked.connect(self._move_up)
+        self._dn_btn = self._secondary_btn("Down", SP.SP_ArrowDown)
+        self._dn_btn.setFixedWidth(96)
+        self._dn_btn.clicked.connect(self._move_down)
+        reorder_col.addWidget(self._up_btn)
+        reorder_col.addWidget(self._dn_btn)
         reorder_col.addStretch()
         list_row.addLayout(reorder_col)
         layout.addLayout(list_row)
@@ -771,17 +784,20 @@ class PDFMergerApp(QMainWindow):
             )
 
     def _remove_selected(self):
-        selected = self.file_tree.selectedItems()
-        if not selected:
-            return
         all_items = [
             self.file_tree.topLevelItem(i)
             for i in range(self.file_tree.topLevelItemCount())
         ]
-        indices = sorted(
-            [all_items.index(item) for item in selected], reverse=True
-        )
-        for idx in indices:
+        # Prefer checked items; fall back to click-selection
+        indices = [
+            i for i, it in enumerate(all_items)
+            if it.checkState(0) == Qt.CheckState.Checked
+        ]
+        if not indices:
+            indices = [all_items.index(it) for it in self.file_tree.selectedItems()]
+        if not indices:
+            return
+        for idx in sorted(indices, reverse=True):
             self.merger.remove_file(idx)
         self._refresh_file_tree()
 
@@ -804,6 +820,9 @@ class PDFMergerApp(QMainWindow):
             idx - 1 if self.merger.move_file_up(idx) else idx
             for idx in indices
         ]
+        self._sort_combo.blockSignals(True)
+        self._sort_combo.setCurrentIndex(0)
+        self._sort_combo.blockSignals(False)
         self._refresh_file_tree(restore_selection=new_sel)
 
     def _move_down(self):
@@ -821,7 +840,19 @@ class PDFMergerApp(QMainWindow):
             idx + 1 if self.merger.move_file_down(idx) else idx
             for idx in indices
         ]
+        self._sort_combo.blockSignals(True)
+        self._sort_combo.setCurrentIndex(0)
+        self._sort_combo.blockSignals(False)
         self._refresh_file_tree(restore_selection=new_sel)
+
+    def _apply_sort(self, index: int):
+        if index == 0:
+            return  # Custom — no automatic reorder
+        reverse = (index == 2)
+        self.merger.pdf_files.sort(
+            key=lambda p: os.path.basename(p).lower(), reverse=reverse
+        )
+        self._refresh_file_tree()
 
     def _browse_output(self):
         path, _ = QFileDialog.getSaveFileName(
@@ -1198,6 +1229,8 @@ class PDFMergerApp(QMainWindow):
                 info["created_str"],
             ])
             item.setIcon(0, self._pdf_icon)
+            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+            item.setCheckState(0, Qt.CheckState.Unchecked)
             item.setTextAlignment(
                 1, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
             )

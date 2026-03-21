@@ -178,6 +178,32 @@ def build_stylesheet(c: Dict[str, str], font_family: str) -> str:
         background: transparent;
     }}
 
+    /* Sort combo */
+    QComboBox#sortCombo {{
+        background-color: {c['secondary_bg']};
+        color: {c['fg']};
+        border: 1px solid {c['border']};
+        border-radius: 6px;
+        padding: 5px 10px;
+        font-size: 12px;
+        min-width: 130px;
+    }}
+    QComboBox#sortCombo:focus {{
+        border: 2px solid {c['button_bg']};
+    }}
+    QComboBox#sortCombo::drop-down {{
+        border: none;
+        width: 20px;
+    }}
+    QComboBox#sortCombo QAbstractItemView {{
+        background-color: {c['listbox_bg']};
+        color: {c['listbox_fg']};
+        border: 1px solid {c['border']};
+        selection-background-color: {c['listbox_select']};
+        selection-color: #ffffff;
+        outline: none;
+    }}
+
     /* File list */
     QTreeWidget#fileList {{
         background-color: {c['listbox_bg']};
@@ -196,6 +222,20 @@ def build_stylesheet(c: Dict[str, str], font_family: str) -> str:
         background-color: {c['listbox_select']};
         color: #ffffff;
         border-radius: 4px;
+    }}
+    QTreeWidget#fileList::indicator {{
+        width: 15px;
+        height: 15px;
+        border: 2px solid {c['border']};
+        border-radius: 3px;
+        background-color: transparent;
+    }}
+    QTreeWidget#fileList::indicator:checked {{
+        background-color: {c['button_bg']};
+        border-color: {c['button_bg']};
+    }}
+    QTreeWidget#fileList::indicator:hover {{
+        border-color: {c['button_hover']};
     }}
     QTreeWidget#fileList QHeaderView::section {{
         background-color: {c['tree_header_bg']};
