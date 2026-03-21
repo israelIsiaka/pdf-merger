@@ -50,17 +50,13 @@ def build_windows_exe():
         # Bundle logo files so _load_icon() can find them at runtime via sys._MEIPASS
         "--add-data", f"{ico_path}{os.pathsep}.",
         "--add-data", f"{png_path}{os.pathsep}.",
-        # tkinter sub-modules are not always auto-detected on Windows
-        "--hidden-import=tkinter",
-        "--hidden-import=tkinter.ttk",
-        "--hidden-import=tkinter.filedialog",
-        "--hidden-import=tkinter.messagebox",
-        "--hidden-import=PIL",
-        "--hidden-import=PIL.Image",
-        "--hidden-import=PIL.ImageDraw",
-        "--hidden-import=PIL.ImageTk",
+        # PyQt6 sub-modules are not always auto-detected on Windows
+        "--hidden-import=PyQt6",
+        "--hidden-import=PyQt6.QtWidgets",
+        "--hidden-import=PyQt6.QtCore",
+        "--hidden-import=PyQt6.QtGui",
         "--hidden-import=pypdf",
-        "--collect-all=PIL",
+        "--collect-all=PyQt6",
         f"--distpath={os.path.join(DIST_DIR, 'windows')}",
         f"--workpath={os.path.join(BUILD_DIR, 'windows')}",
         f"--specpath={os.path.join(BUILD_DIR, 'windows')}",
@@ -133,44 +129,128 @@ def build_windows_installer():
 
 
 def build_macos_dmg():
-    """Build macOS DMG using py2app."""
+    """Build macOS app bundle using PyInstaller, then package as DMG."""
     print("Building PDF Merger macOS Application (.dmg)...")
 
-    cmd = [sys.executable, "setup.py", "py2app"]
+    icns_path = os.path.join(PROJECT_DIR, "Logo.icns")
+    png_path  = os.path.join(PROJECT_DIR, "Logo.png")
+    src_data  = f"{os.path.join(PROJECT_DIR, 'src')}{os.pathsep}src"
+
+    cmd = [
+        sys.executable, "-m", "PyInstaller",
+        "--name", "PDF Merger",
+        "--onedir",
+        "--windowed",
+        "--noconfirm",
+        "--add-data", src_data,
+        "--add-data", f"{png_path}{os.pathsep}.",
+        "--hidden-import=PyQt6",
+        "--hidden-import=PyQt6.QtWidgets",
+        "--hidden-import=PyQt6.QtCore",
+        "--hidden-import=PyQt6.QtGui",
+        "--hidden-import=pypdf",
+        "--collect-all=PyQt6",
+        f"--distpath={os.path.join(DIST_DIR, 'macos')}",
+        f"--workpath={os.path.join(BUILD_DIR, 'macos')}",
+        f"--specpath={os.path.join(BUILD_DIR, 'macos')}",
+        "merge_pdfs.py",
+    ]
+
+    # Prefer ICNS for macOS, fall back to PNG
+    if os.path.exists(icns_path):
+        cmd.insert(-1, f"--icon={icns_path}")
+    elif os.path.exists(png_path):
+        cmd.insert(-1, f"--icon={png_path}")
+
+    result = subprocess.run(cmd, cwd=PROJECT_DIR)
+    if result.returncode != 0:
+        print("FAILED to build app bundle")
+        return False
+
+    app_path = os.path.join(DIST_DIR, "macos", "PDF Merger.app")
+    dmg_path = os.path.join(DIST_DIR, "PDF-Merger.dmg")
+
+    print("App bundle created")
+    print("Creating DMG installer...")
+
+    cmd = [
+        "hdiutil", "create",
+        "-volname", "PDF Merger",
+        "-srcfolder", app_path,
+        "-ov", "-format", "UDZO",
+        dmg_path,
+    ]
+    result = subprocess.run(cmd)
+
+    if result.returncode == 0:
+        print("DMG created successfully")
+        print("")
+        print("=" * 40)
+        print("Build Complete!")
+        print("=" * 40)
+        print("")
+        print(f"DMG location: {dmg_path}")
+        print("")
+        print("Distribution for macOS:")
+        print("   1. Direct DMG: Users download and drag app to Applications")
+        print("   2. Direct App: Copy 'PDF Merger.app' folder")
+        print("")
+        return True
+
+    print("FAILED to create DMG")
+    return False
+
+
+def build_linux():
+    """Build Linux application using PyInstaller."""
+    print("Building PDF Merger Linux Application...")
+
+    png_path = os.path.join(PROJECT_DIR, "Logo.png")
+    src_data = f"{os.path.join(PROJECT_DIR, 'src')}{os.pathsep}src"
+
+    cmd = [
+        sys.executable, "-m", "PyInstaller",
+        "--name", "PDF Merger",
+        "--onedir",
+        "--windowed",
+        "--noconfirm",
+        "--add-data", src_data,
+        "--hidden-import=PyQt6",
+        "--hidden-import=PyQt6.QtWidgets",
+        "--hidden-import=PyQt6.QtCore",
+        "--hidden-import=PyQt6.QtGui",
+        "--hidden-import=pypdf",
+        "--collect-all=PyQt6",
+        f"--distpath={os.path.join(DIST_DIR, 'linux')}",
+        f"--workpath={os.path.join(BUILD_DIR, 'linux')}",
+        f"--specpath={os.path.join(BUILD_DIR, 'linux')}",
+        "merge_pdfs.py",
+    ]
+
+    if os.path.exists(png_path):
+        idx = cmd.index("merge_pdfs.py")
+        cmd[idx:idx] = ["--add-data", f"{png_path}{os.pathsep}.", f"--icon={png_path}"]
+
     result = subprocess.run(cmd, cwd=PROJECT_DIR)
 
     if result.returncode == 0:
-        print("App bundle created")
-        print("Creating DMG installer...")
-
-        dmg_path = os.path.join(DIST_DIR, "PDF-Merger.dmg")
-        app_path = os.path.join(DIST_DIR, "PDF Merger.app")
-
-        cmd = [
-            "hdiutil", "create",
-            "-volname", "PDF Merger",
-            "-srcfolder", app_path,
-            "-ov", "-format", "UDZO",
-            dmg_path,
-        ]
-        result = subprocess.run(cmd)
-
-        if result.returncode == 0:
-            print("DMG created successfully")
+        output_dir = os.path.join(DIST_DIR, "linux", "PDF Merger")
+        if os.path.exists(output_dir):
+            print("Linux build created successfully")
             print("")
             print("=" * 40)
             print("Build Complete!")
             print("=" * 40)
             print("")
-            print(f"DMG location: {dmg_path}")
+            print(f"Output location: {output_dir}")
             print("")
-            print("Distribution for macOS:")
-            print("   1. Direct DMG: Users download and drag app to Applications")
-            print("   2. Direct App: Copy 'PDF Merger.app' folder")
+            print("Distribution for Linux:")
+            print("   1. Direct folder: Share the 'PDF Merger' folder")
+            print("   2. TAR: Compress the dist/linux/ folder")
             print("")
             return True
 
-    print("FAILED to create DMG")
+    print("FAILED to create Linux build")
     return False
 
 
@@ -183,9 +263,11 @@ def detect_and_build():
         return build_windows_exe()
     elif system == "Darwin":
         return build_macos_dmg()
+    elif system == "Linux":
+        return build_linux()
     else:
         print("ERROR: Unsupported platform for automated building")
-        print("Use: python build.py windows  OR  python build.py macos")
+        print("Use: python build.py windows  OR  python build.py macos  OR  python build.py linux")
         return False
 
 
@@ -202,13 +284,16 @@ if __name__ == "__main__":
                 success = build_windows_installer()
         elif target == "macos":
             success = build_macos_dmg()
+        elif target == "linux":
+            success = build_linux()
         else:
             print(f"ERROR: Unknown target: {target}")
-            print("Usage: python build.py [windows|windows-installer|macos]")
+            print("Usage: python build.py [windows|windows-installer|macos|linux]")
             print("")
             print("  windows           - Create portable Windows folder")
             print("  windows-installer - Create Windows installer (.exe) with NSIS")
             print("  macos             - Create macOS .dmg installer")
+            print("  linux             - Create portable Linux folder")
             success = False
     else:
         success = detect_and_build()

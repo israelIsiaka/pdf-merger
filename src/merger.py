@@ -181,16 +181,22 @@ class PDFMerger:
             return False, f"Failed to merge PDFs: {str(e)}"
 
     def protect_pdf(
-        self, input_path: str, output_path: str, password: str
+        self, input_path: str, output_path: str, password: str,
+        progress_callback: Optional[Callable[[int], None]] = None,
     ) -> Tuple[bool, str]:
         """Apply password protection to a PDF file."""
         try:
+            if progress_callback: progress_callback(10)
             reader = PdfReader(input_path)
+            if progress_callback: progress_callback(40)
             writer = PdfWriter()
             writer.append(reader)
+            if progress_callback: progress_callback(75)
             writer.encrypt(password)
+            if progress_callback: progress_callback(90)
             with open(output_path, "wb") as f:
                 writer.write(f)
+            if progress_callback: progress_callback(100)
             return True, f"PDF protected and saved to: {output_path}"
         except Exception as e:
             return False, f"Failed to protect PDF: {str(e)}"
@@ -202,6 +208,7 @@ class PDFMerger:
         output_preview: str,
         output_full: str,
         password: str,
+        progress_callback: Optional[Callable[[int], None]] = None,
     ) -> Tuple[bool, str]:
         """
         Create a peep pair from input_path:
@@ -209,26 +216,33 @@ class PDFMerger:
         - output_full: all pages, password-protected (full content)
         """
         try:
+            if progress_callback: progress_callback(5)
             reader = PdfReader(input_path)
             total = len(reader.pages)
             if total == 0:
                 return False, "The selected PDF has no pages."
 
             free = min(max(1, free_page_count), total)
+            if progress_callback: progress_callback(15)
 
             # Preview: first N pages, no encryption
             preview_writer = PdfWriter()
             for i in range(free):
                 preview_writer.add_page(reader.pages[i])
+            if progress_callback: progress_callback(40)
             with open(output_preview, "wb") as f:
                 preview_writer.write(f)
+            if progress_callback: progress_callback(55)
 
             # Full: all pages, encrypted
             full_writer = PdfWriter()
             full_writer.append(reader)
+            if progress_callback: progress_callback(75)
             full_writer.encrypt(password)
+            if progress_callback: progress_callback(90)
             with open(output_full, "wb") as f:
                 full_writer.write(f)
+            if progress_callback: progress_callback(100)
 
             locked = total - free
             return True, (

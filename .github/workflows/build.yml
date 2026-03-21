@@ -21,7 +21,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies
-        run: pip install pypdf Pillow py2app
+        run: pip install pypdf PyQt6 pyinstaller Pillow
 
       - name: Convert icon
         run: python convert_icon.py
@@ -35,6 +35,39 @@ jobs:
           name: PDF-Merger-macOS
           path: dist/PDF-Merger.dmg
 
+  # ── Linux → produces PDF-Merger-Linux.tar.gz ───────────────────────────────
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y \
+            libxcb-cursor0 libxcb-icccm4 libxcb-image0 \
+            libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 \
+            libxcb-xinerama0 libxcb-xkb1 libxkbcommon-x11-0
+
+      - name: Install Python dependencies
+        run: pip install pypdf PyQt6 pyinstaller
+
+      - name: Build Linux bundle
+        run: python build.py linux
+
+      - name: Package as tarball
+        run: tar -czf dist/PDF-Merger-Linux.tar.gz -C dist/linux "PDF Merger"
+
+      - name: Upload Linux artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PDF-Merger-Linux
+          path: dist/PDF-Merger-Linux.tar.gz
+
   # ── Windows → produces PDF Merger.exe ──────────────────────────────────────
   build-windows:
     runs-on: windows-latest
@@ -46,7 +79,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies
-        run: pip install pypdf Pillow pyinstaller
+        run: pip install pypdf PyQt6 pyinstaller
 
       - name: Build EXE
         run: python build.py windows
