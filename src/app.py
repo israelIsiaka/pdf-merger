@@ -23,6 +23,7 @@ from .history import HistoryManager
 from .merger import PDFMerger
 from .stylesheet import build_stylesheet
 from .theme import ThemeManager
+from .viewer import PDFViewerWidget
 from .workers import _MergeWorker, _ProtectWorker, _PeepWorker
 
 
@@ -117,6 +118,7 @@ class PDFMergerApp(QMainWindow):
         self.tabs.addTab(self._build_merge_tab(),   "  Merge PDFs  ")
         self.tabs.addTab(self._build_protect_tab(), "  Protect PDF  ")
         self.tabs.addTab(self._build_peep_tab(),    "  Peep  ")
+        self.tabs.addTab(self._build_viewer_tab(),  "  View PDF  ")
         self.tabs.addTab(self._build_history_tab(), "  History  ")
         self.tabs.addTab(self._build_help_tab(),    "  Help / FAQ  ")
 
@@ -388,6 +390,19 @@ class PDFMergerApp(QMainWindow):
         self._peep_btn.clicked.connect(self._do_peep)
         layout.addWidget(self._peep_btn)
 
+        return tab
+
+    # -- View PDF tab ──────────────────────────────────────────────────────────
+
+    def _build_viewer_tab(self) -> QWidget:
+        tab = QWidget()
+        tab.setObjectName("tabPage")
+        layout = QVBoxLayout(tab)
+        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(0)
+
+        self._viewer = PDFViewerWidget(tab)
+        layout.addWidget(self._viewer)
         return tab
 
     # -- History tab ───────────────────────────────────────────────────────────
@@ -1071,7 +1086,7 @@ class PDFMergerApp(QMainWindow):
     # -- History callbacks ─────────────────────────────────────────────────────
 
     def _on_tab_change(self, index: int):
-        if index == 3:
+        if index == 4:
             self._refresh_history()
 
     def _refresh_history(self):
@@ -1281,3 +1296,7 @@ def main():
     window = PDFMergerApp()
     window.show()
     sys.exit(app.exec())
+
+
+if __name__ == "__main__":
+    main()

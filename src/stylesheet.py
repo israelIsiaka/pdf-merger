@@ -380,6 +380,28 @@ def build_stylesheet(c: Dict[str, str], font_family: str) -> str:
         color: {c['button_bg']};
     }}
 
+    /* PDF Viewer */
+    QScrollArea#viewerScroll {{
+        background-color: {c['secondary_bg']};
+        border: none;
+    }}
+    QScrollArea#viewerScroll > QWidget > QWidget {{
+        background-color: {c['secondary_bg']};
+    }}
+    QLabel#pageCard {{
+        background-color: {c['bg']};
+        border: 1px solid {c['border']};
+        color: {c['label_secondary']};
+        font-size: 11px;
+    }}
+    QLabel#lockedPage {{
+        border: 1px solid {c['border']};
+    }}
+    QLabel#pageNumLabel {{
+        font-size: 11px;
+        color: {c['label_secondary']};
+    }}
+
     /* Dialogs */
     QDialog {{ background-color: {c['bg']}; }}
     QMessageBox {{ background-color: {c['bg']}; }}

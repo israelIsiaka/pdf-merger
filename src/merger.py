@@ -336,9 +336,16 @@ class PDFMerger:
             if progress_callback: progress_callback(15)
 
             # Preview: first N pages, no encryption
+            # Embed an app-specific marker so the viewer knows this is a
+            # peep-locked file and can apply gating automatically.
             preview_writer = PdfWriter()
             for i in range(free):
                 preview_writer.add_page(reader.pages[i])
+            preview_writer.add_metadata({
+                "/PeepApp":        "PDF-Merger-Peep",
+                "/PeepFreePages":  str(free),
+                "/PeepTotalPages": str(total),
+            })
             if progress_callback: progress_callback(35)
 
             fd, tmp_preview = tempfile.mkstemp(dir=preview_dir, suffix=".tmp")
