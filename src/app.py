@@ -768,9 +768,18 @@ class PDFMergerApp(QMainWindow):
         paths, _ = QFileDialog.getOpenFileNames(
             self, "Select PDF Files", "", "PDF Files (*.pdf)"
         )
+        if not paths:
+            return
         count = self.merger.add_files(paths)
+        skipped = len(paths) - count
         self._refresh_file_tree()
-        self._set_status(f"Added {count} file(s)." if count else "")
+        if skipped:
+            self._set_status(
+                f"Added {count} file(s). {skipped} skipped (not a valid PDF or duplicate).",
+                error=skipped > 0 and count == 0,
+            )
+        else:
+            self._set_status(f"Added {count} file(s)." if count else "")
 
     def _add_folder(self):
         folder = QFileDialog.getExistingDirectory(
