@@ -53,7 +53,15 @@ def build_windows_exe():
         "--hidden-import=PyQt6.QtCore",
         "--hidden-import=PyQt6.QtGui",
         "--hidden-import=pypdf",
+        # PyMuPDF is lazy-imported as 'fitz'; collect-all pulls in native binaries
+        "--hidden-import=fitz",
+        "--hidden-import=fitz._fitz",
+        # Pillow is lazy-imported; _imaging is the native extension
+        "--hidden-import=PIL",
+        "--hidden-import=PIL._imaging",
         "--collect-all=PyQt6",
+        "--collect-all=fitz",
+        "--collect-all=PIL",
         f"--distpath={os.path.join(DIST_DIR, 'windows')}",
         f"--workpath={os.path.join(BUILD_DIR, 'windows')}",
         f"--specpath={os.path.join(BUILD_DIR, 'windows')}",
@@ -157,7 +165,15 @@ def build_macos_dmg():
         "--hidden-import=PyQt6.QtCore",
         "--hidden-import=PyQt6.QtGui",
         "--hidden-import=pypdf",
+        # PyMuPDF is lazy-imported as 'fitz'; collect-all pulls in native binaries
+        "--hidden-import=fitz",
+        "--hidden-import=fitz._fitz",
+        # Pillow is lazy-imported; _imaging is the native extension
+        "--hidden-import=PIL",
+        "--hidden-import=PIL._imaging",
         "--collect-all=PyQt6",
+        "--collect-all=fitz",
+        "--collect-all=PIL",
         f"--distpath={os.path.join(DIST_DIR, 'macos')}",
         f"--workpath={os.path.join(BUILD_DIR, 'macos')}",
         f"--specpath={os.path.join(BUILD_DIR, 'macos')}",
@@ -228,7 +244,15 @@ def build_linux():
         "--hidden-import=PyQt6.QtCore",
         "--hidden-import=PyQt6.QtGui",
         "--hidden-import=pypdf",
+        # PyMuPDF is lazy-imported as 'fitz'; collect-all pulls in native binaries
+        "--hidden-import=fitz",
+        "--hidden-import=fitz._fitz",
+        # Pillow is lazy-imported; _imaging is the native extension
+        "--hidden-import=PIL",
+        "--hidden-import=PIL._imaging",
         "--collect-all=PyQt6",
+        "--collect-all=fitz",
+        "--collect-all=PIL",
         f"--distpath={os.path.join(DIST_DIR, 'linux')}",
         f"--workpath={os.path.join(BUILD_DIR, 'linux')}",
         f"--specpath={os.path.join(BUILD_DIR, 'linux')}",

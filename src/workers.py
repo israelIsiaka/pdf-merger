@@ -6,6 +6,7 @@ progress updates and completion, keeping the UI fully responsive.
 from PyQt6.QtCore import QThread, pyqtSignal
 
 
+
 class _MergeWorker(QThread):
     progress_changed = pyqtSignal(int)
     merge_done       = pyqtSignal(bool, str)
@@ -63,6 +64,84 @@ class _PeepWorker(QThread):
             progress_callback=self.progress_changed.emit,
         )
         self.peep_done.emit(success, msg)
+
+
+class _CompressWorker(QThread):
+    progress_changed = pyqtSignal(int)
+    compress_done    = pyqtSignal(bool, str)
+
+    def __init__(self, compressor, input_path: str, output_path: str, level: int):
+        super().__init__()
+        self._compressor = compressor
+        self._input      = input_path
+        self._output     = output_path
+        self._level      = level
+
+    def run(self):
+        success, msg = self._compressor.compress(
+            self._input, self._output, self._level,
+            progress_callback=self.progress_changed.emit,
+        )
+        self.compress_done.emit(success, msg)
+
+
+class _WatermarkWorker(QThread):
+    progress_changed = pyqtSignal(int)
+    watermark_done   = pyqtSignal(bool, str)
+
+    def __init__(self, watermarker, input_path: str, output_path: str,
+                 image_path: str, position: str, frequency: str,
+                 scale: float, opacity: float):
+        super().__init__()
+        self._wm        = watermarker
+        self._input     = input_path
+        self._output    = output_path
+        self._image     = image_path
+        self._position  = position
+        self._frequency = frequency
+        self._scale     = scale
+        self._opacity   = opacity
+
+    def run(self):
+        success, msg = self._wm.apply(
+            self._input, self._output, self._image,
+            self._position, self._frequency, self._scale, self._opacity,
+            progress_callback=self.progress_changed.emit,
+        )
+        self.watermark_done.emit(success, msg)
+
+
+class _WatermarkPreviewWorker(QThread):
+    """Render a single page with watermark in-memory and emit the QImage."""
+    preview_ready = pyqtSignal(object)   # QImage or None
+
+    def __init__(self, watermarker, pdf_path: str, image_path: str,
+                 position: str, scale: float, opacity: float,
+                 page_index: int, frequency: str = "all"):
+        super().__init__()
+        self._wm         = watermarker
+        self._pdf        = pdf_path
+        self._image      = image_path
+        self._position   = position
+        self._scale      = scale
+        self._opacity    = opacity
+        self._page_index = page_index
+        self._frequency  = frequency
+        self._stopped    = False
+
+    def stop(self) -> None:
+        self._stopped = True
+
+    def run(self) -> None:
+        if self._stopped:
+            return
+        result = self._wm.render_preview(
+            self._pdf, self._image, self._position,
+            self._scale, self._opacity, self._page_index,
+            self._frequency,
+        )
+        if not self._stopped:
+            self.preview_ready.emit(result)
 
 
 class _RenderWorker(QThread):

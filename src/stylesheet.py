@@ -47,6 +47,10 @@ def build_stylesheet(c: Dict[str, str], font_family: str) -> str:
         font-size: 11px;
         color: {c['error']};
     }}
+    QLabel#cautionLabel {{
+        font-size: 11px;
+        color: {c['error']};
+    }}
     QLabel#dialogPrompt {{
         font-size: 13px;
         color: {c['label_main']};
@@ -313,6 +317,42 @@ def build_stylesheet(c: Dict[str, str], font_family: str) -> str:
     QScrollBar::add-line:horizontal,
     QScrollBar::sub-line:horizontal {{ width: 0px; }}
 
+    /* Help / FAQ tab -- search bar */
+    QWidget#faqSearchBar {{
+        background-color: {c['bg']};
+        border-bottom: 2px solid {c['border']};
+    }}
+    QWidget#faqSearchInner {{
+        background-color: {c['secondary_bg']};
+        border: 1px solid {c['border']};
+        border-radius: 10px;
+    }}
+    QPushButton#faqToggle {{
+        background-color: transparent;
+        color: {c['label_main']};
+        border: none;
+        border-bottom: 1px solid {c['border']};
+        border-radius: 0px;
+        padding: 10px 12px;
+        font-size: 12px;
+        font-weight: bold;
+        text-align: left;
+    }}
+    QPushButton#faqToggle:hover {{
+        background-color: {c['tree_alt_bg']};
+    }}
+    QPushButton#faqToggle:checked {{
+        background-color: {c['tree_alt_bg']};
+        color: {c['button_bg']};
+    }}
+    QLabel#faqAnswer {{
+        font-size: 12px;
+        color: {c['label_secondary']};
+        background-color: {c['tree_alt_bg']};
+        padding: 10px 12px 14px 28px;
+        border-bottom: 1px solid {c['border']};
+    }}
+
     /* Help / FAQ tab */
     QLabel#helpSection {{
         font-size: 14px;
@@ -378,6 +418,63 @@ def build_stylesheet(c: Dict[str, str], font_family: str) -> str:
     QPushButton#eyeBtn:checked {{
         background-color: {c['secondary_btn_hover']};
         color: {c['button_bg']};
+    }}
+
+    /* Watermark position picker (3x3 grid of square toggle buttons) */
+    QPushButton#posBtn {{
+        background-color: {c['secondary_btn_bg']};
+        border: 2px solid {c['border']};
+        border-radius: 5px;
+    }}
+    QPushButton#posBtn:hover:!checked {{
+        background-color: {c['secondary_btn_hover']};
+        border-color: {c['label_secondary']};
+    }}
+    QPushButton#posBtn:checked {{
+        background-color: {c['button_bg']};
+        border-color: {c['button_bg']};
+    }}
+
+    /* Sliders (used in Watermark tab) */
+    QSlider#wmSlider::groove:horizontal {{
+        height: 4px;
+        background-color: {c['border']};
+        border-radius: 2px;
+    }}
+    QSlider#wmSlider::handle:horizontal {{
+        width: 16px;
+        height: 16px;
+        margin: -6px 0px;
+        background-color: {c['button_bg']};
+        border-radius: 8px;
+    }}
+    QSlider#wmSlider::handle:horizontal:hover {{
+        background-color: {c['button_hover']};
+    }}
+    QSlider#wmSlider::sub-page:horizontal {{
+        background-color: {c['button_bg']};
+        border-radius: 2px;
+    }}
+
+    /* Radio buttons */
+    QRadioButton#radioBtn {{
+        color: {c['label_main']};
+        font-size: 12px;
+        spacing: 8px;
+    }}
+    QRadioButton#radioBtn::indicator {{
+        width: 14px;
+        height: 14px;
+        border: 2px solid {c['border']};
+        border-radius: 7px;
+        background: transparent;
+    }}
+    QRadioButton#radioBtn::indicator:checked {{
+        background-color: {c['button_bg']};
+        border-color: {c['button_bg']};
+    }}
+    QRadioButton#radioBtn::indicator:hover {{
+        border-color: {c['button_hover']};
     }}
 
     /* PDF Viewer */

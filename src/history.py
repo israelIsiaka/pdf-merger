@@ -72,6 +72,30 @@ class HistoryManager:
         self._entries = self._entries[:MAX_ENTRIES]
         self._save()
 
+    def add_compress(self, output_path: str, level_label: str):
+        """Record a compress operation."""
+        self._entries.insert(0, {
+            "type": f"Compress ({level_label})",
+            "output": os.path.basename(output_path),
+            "sources": 1,
+            "timestamp": datetime.datetime.now().isoformat(timespec="seconds"),
+            "password_protected": False,
+        })
+        self._entries = self._entries[:MAX_ENTRIES]
+        self._save()
+
+    def add_watermark(self, output_path: str):
+        """Record a watermark operation."""
+        self._entries.insert(0, {
+            "type": "Watermark",
+            "output": os.path.basename(output_path),
+            "sources": 1,
+            "timestamp": datetime.datetime.now().isoformat(timespec="seconds"),
+            "password_protected": False,
+        })
+        self._entries = self._entries[:MAX_ENTRIES]
+        self._save()
+
     def get_entries(self) -> List[Dict]:
         return list(self._entries)
 

@@ -218,7 +218,8 @@ class PDFViewerWidget(QWidget):
         self._password    = ""
         self._unlocked    = False
         self._is_peep     = False
-        self._path_edit.setText(path)
+        self._path_edit.setText(os.path.basename(path))
+        self._path_edit.setToolTip(path)
         self._load_pdf()
 
     # -- Internal load ────────────────────────────────────────────────────────

@@ -292,7 +292,7 @@ class PDFMerger:
 
             _secure_file(output_path)
             if progress_callback: progress_callback(100)
-            return True, f"PDF protected and saved to: {output_path}"
+            return True, f"PDF protected and saved to: {os.path.basename(output_path)}"
 
         except Exception as e:
             return False, f"Failed to protect PDF: {str(e)}"

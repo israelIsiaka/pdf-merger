@@ -7,24 +7,32 @@ import os
 import sys
 from pathlib import Path
 
-from PyQt6.QtCore import Qt, QSize
+from PyQt6.QtCore import Qt, QSize, QTimer
 from PyQt6.QtGui import QColor, QFont, QIcon, QPixmap, QPainter, QBrush, QPen
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QDialog,
-    QVBoxLayout, QHBoxLayout,
+    QVBoxLayout, QHBoxLayout, QGridLayout,
     QTabWidget, QLabel, QPushButton, QLineEdit,
     QTreeWidget, QTreeWidgetItem, QProgressBar,
     QSpinBox, QComboBox, QFileDialog, QMessageBox,
     QHeaderView, QAbstractItemView, QStyle, QScrollArea,
+    QButtonGroup, QRadioButton, QSlider,
 )
 
+from .compressor import PDFCompressor, LEVEL_LIGHT, LEVEL_MEDIUM, LEVEL_HIGH, LEVEL_LABELS, LEVEL_DESCRIPTIONS
+from .faq import build_faq_widget
 from .dialogs import _PasswordDialog
 from .history import HistoryManager
 from .merger import PDFMerger
 from .stylesheet import build_stylesheet
 from .theme import ThemeManager
+from .utils import PlatformInfo
 from .viewer import PDFViewerWidget
-from .workers import _MergeWorker, _ProtectWorker, _PeepWorker
+from .watermark import (PDFWatermarker, POSITION_GRID, POSITION_LABELS,
+                        POS_MID_CENTER, FREQ_LABELS,
+                        FREQ_ALL, FREQ_ODD, FREQ_EVEN, FREQ_FIRST, FREQ_LAST)
+from .workers import (_MergeWorker, _ProtectWorker, _PeepWorker,
+                      _CompressWorker, _WatermarkWorker, _WatermarkPreviewWorker)
 
 
 # -- Main application window ───────────────────────────────────────────────────
@@ -34,13 +42,32 @@ class PDFMergerApp(QMainWindow):
 
     def __init__(self):
         super().__init__()
-        self.theme   = ThemeManager()
-        self.merger  = PDFMerger()
-        self.history = HistoryManager()
+        self.theme      = ThemeManager()
+        self.merger     = PDFMerger()
+        self.history    = HistoryManager()
+        self.compressor  = PDFCompressor()
+        self.watermarker = PDFWatermarker()
 
-        self._merge_worker   = None
-        self._protect_worker = None
-        self._peep_worker    = None
+        self._merge_worker      = None
+        self._protect_worker    = None
+        self._peep_worker       = None
+        self._compress_worker   = None
+        self._wm_worker         = None
+        self._wm_preview_worker = None
+
+        # Full paths for file fields (displayed as basename only)
+        self._protect_input_path   = ""
+        self._protect_output_path  = ""
+        self._peep_input_path      = ""
+        self._compress_input_path  = ""
+        self._compress_output_path = ""
+        self._wm_input_path        = ""
+        self._wm_image_path        = ""
+        self._wm_output_path       = ""
+        self._wm_page_index        = 0
+        self._wm_page_count        = 0
+        self._wm_preview_timer     = None   # created after _build_ui
+
         self._source_count   = 0
         self._output_path    = ""
 
@@ -56,6 +83,18 @@ class PDFMergerApp(QMainWindow):
         self._pdf_icon = self._make_pdf_icon()
         self._build_ui()
         self._apply_stylesheet()
+
+        # Debounce timer for watermark live preview (fires 400 ms after last change)
+        self._wm_preview_timer = QTimer(self)
+        self._wm_preview_timer.setSingleShot(True)
+        self._wm_preview_timer.setInterval(400)
+        self._wm_preview_timer.timeout.connect(self._start_wm_preview)
+
+        # Poll every 3 s for OS dark/light mode changes and re-theme if needed
+        self._theme_timer = QTimer(self)
+        self._theme_timer.setInterval(3000)
+        self._theme_timer.timeout.connect(self._check_theme_change)
+        self._theme_timer.start()
 
     # -- Icon helpers ──────────────────────────────────────────────────────────
 
@@ -115,12 +154,14 @@ class PDFMergerApp(QMainWindow):
         self.tabs.setObjectName("mainTabs")
         root.addWidget(self.tabs)
 
-        self.tabs.addTab(self._build_merge_tab(),   "  Merge PDFs  ")
-        self.tabs.addTab(self._build_protect_tab(), "  Protect PDF  ")
-        self.tabs.addTab(self._build_peep_tab(),    "  Peep  ")
-        self.tabs.addTab(self._build_viewer_tab(),  "  View PDF  ")
-        self.tabs.addTab(self._build_history_tab(), "  History  ")
-        self.tabs.addTab(self._build_help_tab(),    "  Help / FAQ  ")
+        self.tabs.addTab(self._build_merge_tab(),      "  Merge PDFs  ")
+        self.tabs.addTab(self._build_protect_tab(),    "  Protect PDF  ")
+        self.tabs.addTab(self._build_peep_tab(),       "  Peep  ")
+        self.tabs.addTab(self._build_viewer_tab(),     "  View PDF  ")
+        self.tabs.addTab(self._build_compress_tab(),   "  Compress PDF  ")
+        self.tabs.addTab(self._build_watermark_tab(),  "  Watermark  ")
+        self.tabs.addTab(self._build_history_tab(),    "  History  ")
+        self.tabs.addTab(self._build_help_tab(),       "  Help / FAQ  ")
 
         self.tabs.currentChanged.connect(self._on_tab_change)
 
@@ -249,7 +290,8 @@ class PDFMergerApp(QMainWindow):
         row.setSpacing(8)
         self._protect_input = QLineEdit()
         self._protect_input.setObjectName("inputField")
-        self._protect_input.setPlaceholderText("Path to PDF file...")
+        self._protect_input.setPlaceholderText("Select a PDF with Browse...")
+        self._protect_input.setReadOnly(True)
         row.addWidget(self._protect_input)
         b = self._secondary_btn("Browse...", SP.SP_DirOpenIcon)
         b.setFixedWidth(120)
@@ -262,7 +304,8 @@ class PDFMergerApp(QMainWindow):
         row2.setSpacing(8)
         self._protect_output = QLineEdit()
         self._protect_output.setObjectName("inputField")
-        self._protect_output.setPlaceholderText("Output file path (auto-filled on browse)...")
+        self._protect_output.setReadOnly(True)
+        self._protect_output.setPlaceholderText("Output filename (auto-filled on browse)...")
         row2.addWidget(self._protect_output)
         b2 = self._secondary_btn("Browse...", SP.SP_DirOpenIcon)
         b2.setFixedWidth(120)
@@ -320,7 +363,8 @@ class PDFMergerApp(QMainWindow):
         src_row.setSpacing(8)
         self._peep_input = QLineEdit()
         self._peep_input.setObjectName("inputField")
-        self._peep_input.setPlaceholderText("Path to PDF file...")
+        self._peep_input.setPlaceholderText("Select a PDF with Browse...")
+        self._peep_input.setReadOnly(True)
         src_row.addWidget(self._peep_input)
         b = self._secondary_btn("Browse...", SP.SP_DirOpenIcon)
         b.setFixedWidth(120)
@@ -405,6 +449,186 @@ class PDFMergerApp(QMainWindow):
         layout.addWidget(self._viewer)
         return tab
 
+    # -- Compress PDF tab ──────────────────────────────────────────────────────
+
+    def _build_compress_tab(self) -> QWidget:
+        SP  = QStyle.StandardPixmap
+        tab = QWidget()
+        tab.setObjectName("tabPage")
+        layout = QVBoxLayout(tab)
+        layout.setContentsMargins(28, 24, 28, 24)
+        layout.setSpacing(10)
+
+        desc = QLabel("Reduce the file size of any PDF.")
+        desc.setObjectName("descLabel")
+        layout.addWidget(desc)
+        layout.addSpacing(8)
+
+        # Input
+        layout.addWidget(self._field_label("Select PDF:"))
+        in_row = QHBoxLayout()
+        in_row.setSpacing(8)
+        self._compress_input = QLineEdit()
+        self._compress_input.setObjectName("inputField")
+        self._compress_input.setPlaceholderText("Select a PDF with Browse...")
+        self._compress_input.setReadOnly(True)
+        in_row.addWidget(self._compress_input)
+        b_in = self._secondary_btn("Browse...", SP.SP_DirOpenIcon)
+        b_in.setFixedWidth(120)
+        b_in.clicked.connect(self._browse_compress_input)
+        in_row.addWidget(b_in)
+        layout.addLayout(in_row)
+
+        # Output
+        layout.addWidget(self._field_label("Save Compressed PDF As:"))
+        out_row = QHBoxLayout()
+        out_row.setSpacing(8)
+        self._compress_output = QLineEdit()
+        self._compress_output.setObjectName("inputField")
+        self._compress_output.setReadOnly(True)
+        self._compress_output.setPlaceholderText("Output filename (auto-filled on browse)...")
+        out_row.addWidget(self._compress_output)
+        b_out = self._secondary_btn("Browse...", SP.SP_DirOpenIcon)
+        b_out.setFixedWidth(120)
+        b_out.clicked.connect(self._browse_compress_output)
+        out_row.addWidget(b_out)
+        layout.addLayout(out_row)
+
+        # Compression level radio buttons
+        layout.addSpacing(6)
+        layout.addWidget(self._field_label("Compression Level:"))
+
+        self._compress_level_group = QButtonGroup(self)
+        self._compress_desc_lbl    = QLabel(LEVEL_DESCRIPTIONS[LEVEL_MEDIUM])
+        self._compress_desc_lbl.setObjectName("cautionLabel")
+        self._compress_desc_lbl.setWordWrap(True)
+
+        radio_data = [
+            (LEVEL_LIGHT,  "Light  -- lossless, 10-30% reduction"),
+            (LEVEL_MEDIUM, "Medium  -- lossless, 20-50% reduction  (recommended)"),
+            (LEVEL_HIGH,   "High  -- images compressed, 40-80% reduction"),
+        ]
+        for level, label_text in radio_data:
+            rb = QRadioButton(label_text)
+            rb.setChecked(level == LEVEL_MEDIUM)
+            rb.setObjectName("radioBtn")
+            rb.toggled.connect(
+                lambda checked, lv=level: (
+                    self._compress_desc_lbl.setText(LEVEL_DESCRIPTIONS[lv])
+                    if checked else None
+                )
+            )
+            self._compress_level_group.addButton(rb, level)
+            layout.addWidget(rb)
+
+        layout.addWidget(self._compress_desc_lbl)
+
+        # Progress + status
+        layout.addSpacing(4)
+        self._compress_progress = self._make_progress()
+        layout.addWidget(self._compress_progress)
+
+        self._compress_status = QLabel("")
+        self._compress_status.setObjectName("statusLabel")
+        layout.addWidget(self._compress_status)
+
+        layout.addStretch()
+
+        self._compress_btn = self._primary_btn("Compress PDF")
+        self._compress_btn.setFixedHeight(52)
+        self._compress_btn.clicked.connect(self._do_compress)
+        layout.addWidget(self._compress_btn)
+
+        return tab
+
+    # -- Compress callbacks ────────────────────────────────────────────────────
+
+    def _browse_compress_input(self):
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Select PDF to Compress", "", "PDF Files (*.pdf)"
+        )
+        if path:
+            self._compress_input_path = path
+            self._compress_input.setText(os.path.basename(path))
+            self._compress_input.setToolTip(path)
+            if not self._compress_output_path:
+                stem = path[:-4] if path.lower().endswith(".pdf") else path
+                self._compress_output_path = stem + "_compressed.pdf"
+                self._compress_output.setText(os.path.basename(self._compress_output_path))
+                self._compress_output.setToolTip(self._compress_output_path)
+
+    def _browse_compress_output(self):
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Save Compressed PDF As", "", "PDF Files (*.pdf)"
+        )
+        if path:
+            self._compress_output_path = path
+            self._compress_output.setText(os.path.basename(path))
+            self._compress_output.setToolTip(path)
+
+    def _do_compress(self):
+        input_path  = self._compress_input_path
+        output_path = self._compress_output_path
+        level       = self._compress_level_group.checkedId()
+
+        def err(msg):
+            self._compress_status.setStyleSheet(
+                f"color: {self.theme.get_color('error')};"
+            )
+            self._compress_status.setText(msg)
+
+        if not input_path or not os.path.isfile(input_path):
+            return err("Please select a valid PDF file.")
+        if not output_path:
+            return err("Please set an output file path.")
+        if level == -1:
+            return err("Please select a compression level.")
+
+        if (os.path.realpath(output_path) != os.path.realpath(input_path)
+                and os.path.exists(output_path)):
+            reply = QMessageBox.question(
+                self, "File Already Exists",
+                f"'{os.path.basename(output_path)}' already exists.\nOverwrite it?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            )
+            if reply != QMessageBox.StandardButton.Yes:
+                return
+
+        self._compress_btn.setEnabled(False)
+        self._compress_progress.setValue(0)
+        self._compress_status.setStyleSheet("")
+        self._compress_status.setText("Compressing...")
+
+        self._compress_worker = _CompressWorker(
+            self.compressor, input_path, output_path, level
+        )
+        self._compress_worker.progress_changed.connect(
+            self._compress_progress.setValue
+        )
+        self._compress_worker.compress_done.connect(
+            lambda ok, msg: self._compress_done(ok, msg, output_path, level)
+        )
+        self._compress_worker.start()
+
+    def _compress_done(self, success: bool, message: str, output_path: str, level: int):
+        self._compress_btn.setEnabled(True)
+        self._compress_progress.setValue(100 if success else 0)
+        if success:
+            self._compress_status.setStyleSheet(
+                f"color: {self.theme.get_color('success')};"
+            )
+            self._compress_status.setText(
+                f"Saved: {os.path.basename(output_path)}"
+            )
+            self.history.add_compress(output_path, LEVEL_LABELS[level])
+            QMessageBox.information(self, "Compressed", message)
+        else:
+            self._compress_status.setStyleSheet(
+                f"color: {self.theme.get_color('error')};"
+            )
+            self._compress_status.setText("Compression failed.")
+            QMessageBox.critical(self, "Error", message)
+
     # -- History tab ───────────────────────────────────────────────────────────
 
     def _build_history_tab(self) -> QWidget:
@@ -444,258 +668,9 @@ class PDFMergerApp(QMainWindow):
     # -- Help / FAQ tab ────────────────────────────────────────────────────────
 
     def _build_help_tab(self) -> QWidget:
-        tab = QWidget()
-        tab.setObjectName("tabPage")
-        outer = QVBoxLayout(tab)
-        outer.setContentsMargins(0, 0, 0, 0)
+        return build_faq_widget(self)
 
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setObjectName("helpScroll")
-        scroll.setFrameShape(QScrollArea.Shape.NoFrame)
-
-        content = QWidget()
-        content.setObjectName("tabPage")
-        layout = QVBoxLayout(content)
-        layout.setContentsMargins(28, 24, 28, 32)
-        layout.setSpacing(6)
-
-        def section(title: str):
-            lbl = QLabel(title)
-            lbl.setObjectName("helpSection")
-            layout.addSpacing(18)
-            layout.addWidget(lbl)
-            layout.addSpacing(4)
-
-        def qa(question: str, answer: str):
-            q = QLabel(question)
-            q.setObjectName("helpQ")
-            q.setWordWrap(True)
-            layout.addWidget(q)
-            a = QLabel(answer)
-            a.setObjectName("helpA")
-            a.setWordWrap(True)
-            layout.addWidget(a)
-            layout.addSpacing(8)
-
-        def table(headers: list, rows: list):
-            t = QTreeWidget()
-            t.setObjectName("helpTable")
-            t.setColumnCount(len(headers))
-            t.setHeaderLabels(headers)
-            t.setRootIsDecorated(False)
-            t.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
-            t.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-            t.setAlternatingRowColors(True)
-            t.setUniformRowHeights(True)
-            hdr = t.header()
-            hdr.setStretchLastSection(True)
-            for i in range(len(headers) - 1):
-                hdr.setSectionResizeMode(i, QHeaderView.ResizeMode.ResizeToContents)
-            for row in rows:
-                item = QTreeWidgetItem(row)
-                item.setTextAlignment(0, Qt.AlignmentFlag.AlignTop)
-                item.setTextAlignment(1, Qt.AlignmentFlag.AlignTop)
-                if len(row) > 2:
-                    item.setTextAlignment(2, Qt.AlignmentFlag.AlignTop)
-                t.addTopLevelItem(item)
-            t.resizeColumnToContents(0)
-            total_rows = len(rows)
-            row_h = 36
-            header_h = 32
-            t.setFixedHeight(header_h + total_rows * row_h + 4)
-            layout.addWidget(t)
-            layout.addSpacing(8)
-
-        # ── General ────────────────────────────────────────────────────────────
-        section("General")
-
-        qa("What is PDF Merger?",
-           "PDF Merger is a desktop app for combining, password-protecting, and "
-           "previewing PDFs — all offline.")
-
-        qa("Are my files safe and private?",
-           "Yes. Every operation runs entirely on your computer. Your PDFs are never "
-           "uploaded, transmitted, or shared with any server.")
-
-        qa("What operating systems are supported?",
-           "macOS, Windows, and Linux are all supported. The app automatically "
-           "adapts its fonts and colors to match your platform.")
-
-        # ── Merge ──────────────────────────────────────────────────────────────
-        section("Merge PDFs")
-
-        qa("How many PDFs can I merge at once?",
-           "There is no limit.")
-
-        qa("How do I change the order of files before merging?",
-           "Select a file in the list and use the Up and Down buttons on the right. "
-           "You can select multiple files at once to move them together.")
-
-        qa("What happens if one of my PDFs is password-protected?",
-           "The app detects locked files before the merge starts and asks you for "
-           "the password for each one individually. If you enter a wrong password "
-           "that file is skipped and the rest are still merged.")
-
-        qa("Can I merge PDFs from different folders?",
-           "Yes. Use Add PDFs to pick individual files, or Add Folder to add every "
-           "PDF inside a folder at once. Files from different locations can be mixed "
-           "freely. If two files share the same filename, the parent folder is shown "
-           "in brackets next to the name so you can tell them apart.")
-
-        qa("Will the app warn me before overwriting an existing file?",
-           "Yes. A  dialog appears if the output path already exists. "
-           "The merge will not proceed until you confirm or choose a different path.")
-
-        qa("Can the output file be the same as one of the input files?",
-           "No — the app blocks this and shows an error. Overwriting a source file "
-           "mid-read would corrupt it. Choose a different output path.")
-
-        # ── Protect PDF ────────────────────────────────────────────────────────
-        section("Protect PDF")
-
-        qa("What kind of encryption is applied?",
-           "pypdf applies 128-bit RC4 encryption, which is the standard PDF "
-           "password protection format compatible with Adobe Acrobat and most "
-           "PDF readers.")
-
-        qa("Can I password-protect the merged output right after merging?",
-           "Yes. After a successful merge the app asks if you want to add a "
-           "password.")
-
-
-        qa("What happens if I forget the password?",
-           "There is no recovery option. Store the password somewhere safe. "
-           "The encryption is designed to make the file unreadable without it.")
-
-        # ── Peep ───────────────────────────────────────────────────────────────
-        section("Peep")
-
-        qa("What is Peep?",
-           "Peep lets you share a PDF in two parts: a freely viewable preview "
-           "containing the first N pages, and a full password-protected version "
-           "containing all pages. Readers get a genuine preview before deciding "
-           "whether to unlock the full content.")
-
-        qa("What are the two files it creates?",
-           "A _peep_preview.pdf (no password, first N pages only) and a "
-           "_peep_full.pdf (all pages, password-protected). Both are saved in "
-           "the same folder as your source PDF and named automatically.")
-
-        qa("How do I decide how many free pages to allow?",
-           "Set the Free View Pages number before clicking Create Peep Files. "
-           "A value of 1-3 pages is typical for documents where you want to show "
-           "just enough to establish credibility without giving away the content.")
-
-        qa("Can I share the preview file freely?",
-           "Yes. The preview file has no password and can be opened by anyone "
-           "with any PDF reader. Only the full file requires the password you set.")
-
-        # ── History ────────────────────────────────────────────────────────────
-        section("History")
-
-        qa("What does the History tab track?",
-           "Every merge, protect, and peep operation is recorded with the output "
-           "filename, date and time, and whether the result was password-protected.")
-
-        qa("Where is the history stored?",
-           "On your computer. "
-           "It is never sent anywhere.")
-
-        qa("Is my history stored in the cloud?",
-           "No. The file is local only and never leaves your Computer.")
-
-        # ── Troubleshooting ────────────────────────────────────────────────────
-        section("Troubleshooting")
-
-        qa("A file was skipped during merge — why?",
-           "The file may be corrupted, have an incompatible internal structure, "
-           "or be encrypted without a password being provided. The merge result "
-           "dialog lists every skipped file and the reason.")
-
-        qa("The merged PDF has fewer pages than expected — what happened?",
-           "One or more input files were likely skipped (see above). Check the "
-           "result message for a list of files that could not be read.")
-
-        qa("The progress bar stopped moving — is it frozen?",
-           "All operations run on a background thread so the app should stay "
-           "responsive. If the bar stops, the operation is likely processing a "
-           "very large file. Give it time before assuming something is wrong.")
-
-        # ── Edge Cases table ───────────────────────────────────────────────────
-        section(" Cases at a Glance")
-
-        table(
-            ["Scenario", "What Happens", "What To Do"],
-            [
-                ["Password-protected input PDF",
-                 "App asks for the password before merging begins",
-                 "Enter the correct password for each locked file"],
-                ["Wrong password entered",
-                 "That file is skipped; merge continues with remaining files",
-                 "Re-add the file and try again with the correct password"],
-                ["Output path matches an input file",
-                 "Blocked — error message shown before anything runs",
-                 "Choose a different output file path"],
-                ["Output file already exists",
-                 "Confirmation dialog shown before overwriting",
-                 "Confirm to overwrite or cancel and rename"],
-                ["All files fail to read",
-                 "Error: no pages could be read from any file",
-                 "Check whether the files are corrupted or empty"],
-                ["Two files share the same filename",
-                 "Parent folder shown in brackets next to the name",
-                 "No action needed — it is just for clarity"],
-                ["Source file moved or deleted after adding",
-                 "That file is skipped during merge with an error note",
-                 "Re-add the file from its new location"],
-                ["PDF has zero pages",
-                 "Clear error shown; operation does not proceed",
-                 "Use a valid, non-empty PDF"],
-                ["Peep free pages set higher than the PDF page count",
-                 "Capped automatically to the total page count",
-                 "No action needed"],
-                ["Very large PDFs being merged",
-                 "Operation takes longer; progress bar stays active",
-                 "Wait for the progress bar to complete"],
-            ]
-        )
-
-        # ── Resource Usage table ───────────────────────────────────────────────
- #       section("Resource Usage")
-
-        # table(
-        #     ["Resource", "At Idle", "During an Operation"],
-        #     [
-        #         ["CPU",
-        #          "Near zero",
-        #          "One core active (PDF processing is single-threaded)"],
-        #         ["RAM",
-        #          "60 - 90 MB (app overhead)",
-        #          "Adds roughly 1-2x the total size of the PDFs being processed"],
-        #         ["Disk",
-        #          "None",
-        #          "Sequential read of all inputs, one write of the output file"],
-        #         ["GPU",
-        #          "None",
-        #          "Not used — all rendering is CPU-based"],
-        #         ["Network",
-        #          "None",
-        #          "Fully offline — no data is ever sent anywhere"],
-        #         ["Threads",
-        #          "1 (main UI thread)",
-        #          "2 (main + one background worker per operation)"],
-        #     ]
-        # )  
-        
-        
-
-        layout.addStretch()
-        scroll.setWidget(content)
-        outer.addWidget(scroll)
-        return tab
-
-    # -- Widget factories ──────────────────────────────────────────────────────
+        # -- Widget factories ──────────────────────────────────────────────────────
 
     def _make_progress(self) -> QProgressBar:
         bar = QProgressBar()
@@ -770,12 +745,21 @@ class PDFMergerApp(QMainWindow):
     def _std_icon(self, sp) -> QIcon:
         return QApplication.style().standardIcon(sp)
 
-    # -- Stylesheet ────────────────────────────────────────────────────────────
+    # -- Stylesheet / theme ────────────────────────────────────────────────────
 
     def _apply_stylesheet(self):
         self.setStyleSheet(
             build_stylesheet(self.theme.colors, self.theme.get_font("font_family"))
         )
+
+    def _check_theme_change(self):
+        """Detect OS dark/light mode changes and re-apply the stylesheet."""
+        is_dark = PlatformInfo.is_dark_mode()
+        if is_dark != self.theme.is_dark:
+            self.theme.is_dark    = is_dark
+            self.theme.theme_name = "dark" if is_dark else "light"
+            self.theme.colors     = self.theme._get_theme()
+            self._apply_stylesheet()
 
     # -- Merge callbacks ───────────────────────────────────────────────────────
 
@@ -893,21 +877,27 @@ class PDFMergerApp(QMainWindow):
             self, "Select PDF to Protect", "", "PDF Files (*.pdf)"
         )
         if path:
-            self._protect_input.setText(path)
-            if not self._protect_output.text():
+            self._protect_input_path = path
+            self._protect_input.setText(os.path.basename(path))
+            self._protect_input.setToolTip(path)
+            if not self._protect_output_path:
                 stem = path[:-4] if path.lower().endswith(".pdf") else path
-                self._protect_output.setText(stem + "_protected.pdf")
+                self._protect_output_path = stem + "_protected.pdf"
+                self._protect_output.setText(os.path.basename(self._protect_output_path))
+                self._protect_output.setToolTip(self._protect_output_path)
 
     def _browse_protect_output(self):
         path, _ = QFileDialog.getSaveFileName(
             self, "Save Protected PDF As", "", "PDF Files (*.pdf)"
         )
         if path:
-            self._protect_output.setText(path)
+            self._protect_output_path = path
+            self._protect_output.setText(os.path.basename(path))
+            self._protect_output.setToolTip(path)
 
     def _do_protect(self):
-        input_path  = self._protect_input.text().strip()
-        output_path = self._protect_output.text().strip()
+        input_path  = self._protect_input_path
+        output_path = self._protect_output_path
         pwd         = self._protect_pwd.text()
         confirm     = self._protect_confirm.text()
 
@@ -982,7 +972,9 @@ class PDFMergerApp(QMainWindow):
         )
         if not path:
             return
-        self._peep_input.setText(path)
+        self._peep_input_path = path
+        self._peep_input.setText(os.path.basename(path))
+        self._peep_input.setToolTip(path)
 
         try:
             from pypdf import PdfReader as _PR
@@ -1007,7 +999,7 @@ class PDFMergerApp(QMainWindow):
         )
 
     def _do_peep(self):
-        input_path = self._peep_input.text().strip()
+        input_path = self._peep_input_path
         pwd        = self._peep_pwd.text()
         confirm    = self._peep_confirm.text()
         free_pages = self._peep_spinbox.value()
@@ -1083,10 +1075,432 @@ class PDFMergerApp(QMainWindow):
             self._peep_status.setText("Failed to create peep files.")
             QMessageBox.critical(self, "Error", message)
 
+    # -- Watermark tab ─────────────────────────────────────────────────────────
+
+    _WM_PREVIEW_W = 340   # logical-pixel width for the preview card
+
+    def _build_watermark_tab(self) -> QWidget:
+        SP  = QStyle.StandardPixmap
+        tab = QWidget()
+        tab.setObjectName("tabPage")
+        outer = QVBoxLayout(tab)
+        outer.setContentsMargins(16, 16, 16, 16)
+        outer.setSpacing(10)
+
+        desc = QLabel(
+            "Overlay a PNG or JPG image on every page of a PDF. "
+            "Adjust position, scale, and opacity, then preview before applying."
+        )
+        desc.setObjectName("descLabel")
+        desc.setWordWrap(True)
+        outer.addWidget(desc)
+
+        # Split: controls (left) | live preview (right)
+        split = QHBoxLayout()
+        split.setSpacing(16)
+        outer.addLayout(split, 1)
+
+        # ── LEFT: controls ────────────────────────────────────────────────────
+        ctrl = QVBoxLayout()
+        ctrl.setSpacing(8)
+        split.addLayout(ctrl, 55)
+
+        # Input PDF
+        ctrl.addWidget(self._field_label("Select PDF:"))
+        in_row = QHBoxLayout(); in_row.setSpacing(8)
+        self._wm_input = QLineEdit()
+        self._wm_input.setObjectName("inputField")
+        self._wm_input.setPlaceholderText("Select a PDF with Browse...")
+        self._wm_input.setReadOnly(True)
+        in_row.addWidget(self._wm_input)
+        b_in = self._secondary_btn("Browse...", SP.SP_DirOpenIcon)
+        b_in.setFixedWidth(120)
+        b_in.clicked.connect(self._browse_wm_input)
+        in_row.addWidget(b_in)
+        ctrl.addLayout(in_row)
+
+        # Watermark image
+        ctrl.addWidget(self._field_label("Watermark Image (PNG or JPG):"))
+        img_row = QHBoxLayout(); img_row.setSpacing(8)
+        self._wm_image_field = QLineEdit()
+        self._wm_image_field.setObjectName("inputField")
+        self._wm_image_field.setPlaceholderText("Select an image with Browse...")
+        self._wm_image_field.setReadOnly(True)
+        img_row.addWidget(self._wm_image_field)
+        b_img = self._secondary_btn("Browse...", SP.SP_DirOpenIcon)
+        b_img.setFixedWidth(120)
+        b_img.clicked.connect(self._browse_wm_image)
+        img_row.addWidget(b_img)
+        ctrl.addLayout(img_row)
+
+        # Settings row: position picker | sliders + frequency
+        settings = QHBoxLayout()
+        settings.setSpacing(20)
+        ctrl.addLayout(settings)
+
+        # 3x3 position picker
+        pos_col = QVBoxLayout()
+        pos_col.setSpacing(6)
+        pos_col.addWidget(self._field_label("Position:"))
+        self._wm_pos_btns:  dict = {}
+        self._wm_pos_group = QButtonGroup(self)
+        self._wm_pos_group.setExclusive(True)
+        pos_grid = QGridLayout()
+        pos_grid.setSpacing(4)
+        for r, row_positions in enumerate(POSITION_GRID):
+            for c, pos in enumerate(row_positions):
+                btn = QPushButton()
+                btn.setObjectName("posBtn")
+                btn.setCheckable(True)
+                btn.setChecked(pos == POS_MID_CENTER)
+                btn.setFixedSize(32, 32)
+                btn.setCursor(Qt.CursorShape.PointingHandCursor)
+                self._wm_pos_group.addButton(btn)
+                self._wm_pos_btns[pos] = btn
+                pos_grid.addWidget(btn, r, c)
+        pos_col.addLayout(pos_grid)
+        self._wm_pos_lbl = QLabel(POSITION_LABELS[POS_MID_CENTER])
+        self._wm_pos_lbl.setObjectName("hintLabel")
+        self._wm_pos_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        pos_col.addWidget(self._wm_pos_lbl)
+        pos_col.addStretch()
+        settings.addLayout(pos_col)
+        self._wm_pos_group.buttonClicked.connect(self._on_wm_pos_clicked)
+
+        # Sliders + frequency
+        sliders_col = QVBoxLayout()
+        sliders_col.setSpacing(4)
+
+        sliders_col.addWidget(self._field_label("Opacity:"))
+        sliders_col.addSpacing(4)
+        op_row = QHBoxLayout(); op_row.setSpacing(8)
+        self._wm_opacity_slider = QSlider(Qt.Orientation.Horizontal)
+        self._wm_opacity_slider.setObjectName("wmSlider")
+        self._wm_opacity_slider.setRange(10, 100)
+        self._wm_opacity_slider.setValue(50)
+        self._wm_opacity_lbl = QLabel("50%")
+        self._wm_opacity_lbl.setObjectName("hintLabel")
+        self._wm_opacity_lbl.setFixedWidth(36)
+        op_row.addWidget(self._wm_opacity_slider)
+        op_row.addWidget(self._wm_opacity_lbl)
+        sliders_col.addLayout(op_row)
+        self._wm_opacity_slider.valueChanged.connect(
+            lambda v: (self._wm_opacity_lbl.setText(f"{v}%"),
+                       self._wm_schedule_preview())
+        )
+
+        sliders_col.addSpacing(10)
+        sliders_col.addWidget(self._field_label("Scale (% of page width):"))
+        sliders_col.addSpacing(4)
+        sc_row = QHBoxLayout(); sc_row.setSpacing(8)
+        self._wm_scale_slider = QSlider(Qt.Orientation.Horizontal)
+        self._wm_scale_slider.setObjectName("wmSlider")
+        self._wm_scale_slider.setRange(5, 100)
+        self._wm_scale_slider.setValue(30)
+        self._wm_scale_lbl = QLabel("30%")
+        self._wm_scale_lbl.setObjectName("hintLabel")
+        self._wm_scale_lbl.setFixedWidth(36)
+        sc_row.addWidget(self._wm_scale_slider)
+        sc_row.addWidget(self._wm_scale_lbl)
+        sliders_col.addLayout(sc_row)
+        self._wm_scale_slider.valueChanged.connect(
+            lambda v: (self._wm_scale_lbl.setText(f"{v}%"),
+                       self._wm_schedule_preview())
+        )
+
+        sliders_col.addSpacing(10)
+        sliders_col.addWidget(self._field_label("Frequency:"))
+        self._wm_freq_btns: dict = {}
+        for freq, label in FREQ_LABELS.items():
+            rb = QRadioButton(label)
+            rb.setChecked(freq == FREQ_ALL)
+            rb.setObjectName("radioBtn")
+            rb.toggled.connect(
+                lambda checked: self._wm_schedule_preview() if checked else None
+            )
+            self._wm_freq_btns[freq] = rb
+            sliders_col.addWidget(rb)
+
+        sliders_col.addStretch()
+        settings.addLayout(sliders_col)
+
+        # Output path
+        ctrl.addWidget(self._field_label("Save Watermarked PDF As:"))
+        out_row = QHBoxLayout(); out_row.setSpacing(8)
+        self._wm_output_field = QLineEdit()
+        self._wm_output_field.setObjectName("inputField")
+        self._wm_output_field.setReadOnly(True)
+        self._wm_output_field.setPlaceholderText("Output filename (auto-filled on browse)...")
+        out_row.addWidget(self._wm_output_field)
+        b_out = self._secondary_btn("Browse...", SP.SP_DirOpenIcon)
+        b_out.setFixedWidth(120)
+        b_out.clicked.connect(self._browse_wm_output)
+        out_row.addWidget(b_out)
+        ctrl.addLayout(out_row)
+
+        # Progress + status
+        self._wm_progress = self._make_progress()
+        ctrl.addWidget(self._wm_progress)
+        self._wm_status = QLabel("")
+        self._wm_status.setObjectName("statusLabel")
+        ctrl.addWidget(self._wm_status)
+
+        # Apply button
+        self._wm_btn = self._primary_btn("Apply Watermark")
+        self._wm_btn.setFixedHeight(52)
+        self._wm_btn.clicked.connect(self._do_watermark)
+        ctrl.addWidget(self._wm_btn)
+
+        # ── RIGHT: live preview ───────────────────────────────────────────────
+        prev_col = QVBoxLayout()
+        prev_col.setSpacing(8)
+        split.addLayout(prev_col, 45)
+
+        prev_hdr = QLabel("Preview")
+        prev_hdr.setObjectName("sectionTitle")
+        prev_col.addWidget(prev_hdr)
+
+        nav_row = QHBoxLayout(); nav_row.setSpacing(8)
+        self._wm_prev_btn = self._secondary_btn("<")
+        self._wm_prev_btn.setFixedWidth(36)
+        self._wm_prev_btn.clicked.connect(self._wm_prev_page)
+        self._wm_page_nav_lbl = QLabel("No PDF loaded")
+        self._wm_page_nav_lbl.setObjectName("hintLabel")
+        self._wm_page_nav_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._wm_next_btn = self._secondary_btn(">")
+        self._wm_next_btn.setFixedWidth(36)
+        self._wm_next_btn.clicked.connect(self._wm_next_page)
+        nav_row.addWidget(self._wm_prev_btn)
+        nav_row.addWidget(self._wm_page_nav_lbl, 1)
+        nav_row.addWidget(self._wm_next_btn)
+        prev_col.addLayout(nav_row)
+
+        self._wm_preview_scroll = QScrollArea()
+        self._wm_preview_scroll.setObjectName("viewerScroll")
+        self._wm_preview_scroll.setWidgetResizable(True)
+        self._wm_preview_scroll.setFrameShape(QScrollArea.Shape.NoFrame)
+
+        self._wm_preview_lbl = QLabel(
+            "Select a PDF and watermark image\nto see the live preview."
+        )
+        self._wm_preview_lbl.setObjectName("pageCard")
+        self._wm_preview_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._wm_preview_lbl.setWordWrap(True)
+        self._wm_preview_lbl.setMinimumSize(200, 260)
+        self._wm_preview_scroll.setWidget(self._wm_preview_lbl)
+        prev_col.addWidget(self._wm_preview_scroll, 1)
+
+        self._wm_rendering_lbl = QLabel("Rendering preview...")
+        self._wm_rendering_lbl.setObjectName("hintLabel")
+        self._wm_rendering_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._wm_rendering_lbl.setVisible(False)
+        prev_col.addWidget(self._wm_rendering_lbl)
+
+        return tab
+
+    # -- Watermark callbacks ───────────────────────────────────────────────────
+
+    def _browse_wm_input(self):
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Select PDF to Watermark", "", "PDF Files (*.pdf)"
+        )
+        if not path:
+            return
+        self._wm_input_path = path
+        self._wm_input.setText(os.path.basename(path))
+        self._wm_input.setToolTip(path)
+
+        # Count pages for navigation
+        try:
+            import fitz
+            doc = fitz.open(path)
+            self._wm_page_count = len(doc)
+            doc.close()
+        except Exception:
+            self._wm_page_count = 1
+        self._wm_page_index = 0
+        self._wm_update_nav_label()
+
+        # Auto-fill output path
+        if not self._wm_output_path:
+            stem = path[:-4] if path.lower().endswith(".pdf") else path
+            self._wm_output_path = stem + "_watermarked.pdf"
+            self._wm_output_field.setText(os.path.basename(self._wm_output_path))
+            self._wm_output_field.setToolTip(self._wm_output_path)
+
+        self._wm_schedule_preview()
+
+    def _browse_wm_image(self):
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Select Watermark Image", "",
+            "Images (*.png *.jpg *.jpeg *.PNG *.JPG *.JPEG)"
+        )
+        if path:
+            self._wm_image_path = path
+            self._wm_image_field.setText(os.path.basename(path))
+            self._wm_image_field.setToolTip(path)
+            self._wm_schedule_preview()
+
+    def _browse_wm_output(self):
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Save Watermarked PDF As", "", "PDF Files (*.pdf)"
+        )
+        if path:
+            self._wm_output_path = path
+            self._wm_output_field.setText(os.path.basename(path))
+            self._wm_output_field.setToolTip(path)
+
+    def _on_wm_pos_clicked(self, btn: QPushButton):
+        for pos, b in self._wm_pos_btns.items():
+            if b is btn:
+                self._wm_pos_lbl.setText(POSITION_LABELS[pos])
+                break
+        self._wm_schedule_preview()
+
+    def _get_wm_position(self) -> str:
+        for pos, btn in self._wm_pos_btns.items():
+            if btn.isChecked():
+                return pos
+        return POS_MID_CENTER
+
+    def _get_wm_frequency(self) -> str:
+        for freq, rb in self._wm_freq_btns.items():
+            if rb.isChecked():
+                return freq
+        return FREQ_ALL
+
+    def _wm_update_nav_label(self):
+        if self._wm_page_count > 0:
+            self._wm_page_nav_lbl.setText(
+                f"Page {self._wm_page_index + 1} of {self._wm_page_count}"
+            )
+        else:
+            self._wm_page_nav_lbl.setText("No PDF loaded")
+
+    def _wm_prev_page(self):
+        if self._wm_page_index > 0:
+            self._wm_page_index -= 1
+            self._wm_update_nav_label()
+            self._wm_schedule_preview()
+
+    def _wm_next_page(self):
+        if self._wm_page_index < self._wm_page_count - 1:
+            self._wm_page_index += 1
+            self._wm_update_nav_label()
+            self._wm_schedule_preview()
+
+    def _wm_schedule_preview(self):
+        """Restart the debounce timer; preview renders when user stops changing."""
+        if self._wm_preview_timer and self._wm_input_path and self._wm_image_path:
+            self._wm_preview_timer.start()
+
+    def _start_wm_preview(self):
+        if not self._wm_input_path or not self._wm_image_path:
+            return
+        if self._wm_preview_worker and self._wm_preview_worker.isRunning():
+            self._wm_preview_worker.stop()
+            self._wm_preview_worker.wait(300)
+
+        self._wm_rendering_lbl.setVisible(True)
+        self._wm_preview_worker = _WatermarkPreviewWorker(
+            self.watermarker,
+            self._wm_input_path,
+            self._wm_image_path,
+            self._get_wm_position(),
+            self._wm_scale_slider.value() / 100.0,
+            self._wm_opacity_slider.value() / 100.0,
+            self._wm_page_index,
+            self._get_wm_frequency(),
+        )
+        self._wm_preview_worker.preview_ready.connect(self._on_wm_preview_ready)
+        self._wm_preview_worker.start()
+
+    def _on_wm_preview_ready(self, qimg):
+        self._wm_rendering_lbl.setVisible(False)
+        if qimg is None:
+            self._wm_preview_lbl.setText(
+                "Preview failed.\nMake sure Pillow is installed:\n"
+                "pip install Pillow"
+            )
+            return
+
+        screen = QApplication.primaryScreen()
+        dpr    = screen.devicePixelRatio() if screen else 1.0
+        px     = QPixmap.fromImage(qimg)
+        target = int(self._WM_PREVIEW_W * dpr)
+        scaled = px.scaledToWidth(target, Qt.TransformationMode.SmoothTransformation)
+        scaled.setDevicePixelRatio(dpr)
+
+        logical_h = int(scaled.height() / dpr)
+        self._wm_preview_lbl.setPixmap(scaled)
+        self._wm_preview_lbl.setFixedSize(self._WM_PREVIEW_W, logical_h)
+
+    def _do_watermark(self):
+        input_path  = self._wm_input_path
+        image_path  = self._wm_image_path
+        output_path = self._wm_output_path
+
+        def err(msg):
+            self._wm_status.setStyleSheet(
+                f"color: {self.theme.get_color('error')};"
+            )
+            self._wm_status.setText(msg)
+
+        if not input_path or not os.path.isfile(input_path):
+            return err("Please select a valid PDF file.")
+        if not image_path or not os.path.isfile(image_path):
+            return err("Please select a valid watermark image.")
+        if not output_path:
+            return err("Please set an output file path.")
+
+        if (os.path.realpath(output_path) != os.path.realpath(input_path)
+                and os.path.exists(output_path)):
+            reply = QMessageBox.question(
+                self, "File Already Exists",
+                f"'{os.path.basename(output_path)}' already exists.\nOverwrite it?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            )
+            if reply != QMessageBox.StandardButton.Yes:
+                return
+
+        self._wm_btn.setEnabled(False)
+        self._wm_progress.setValue(0)
+        self._wm_status.setStyleSheet("")
+        self._wm_status.setText("Applying watermark...")
+
+        self._wm_worker = _WatermarkWorker(
+            self.watermarker, input_path, output_path, image_path,
+            self._get_wm_position(), self._get_wm_frequency(),
+            self._wm_scale_slider.value() / 100.0,
+            self._wm_opacity_slider.value() / 100.0,
+        )
+        self._wm_worker.progress_changed.connect(self._wm_progress.setValue)
+        self._wm_worker.watermark_done.connect(
+            lambda ok, msg: self._wm_done(ok, msg, output_path)
+        )
+        self._wm_worker.start()
+
+    def _wm_done(self, success: bool, message: str, output_path: str):
+        self._wm_btn.setEnabled(True)
+        self._wm_progress.setValue(100 if success else 0)
+        if success:
+            self._wm_status.setStyleSheet(
+                f"color: {self.theme.get_color('success')};"
+            )
+            self._wm_status.setText(f"Saved: {os.path.basename(output_path)}")
+            self.history.add_watermark(output_path)
+            QMessageBox.information(self, "Watermark Applied", message)
+        else:
+            self._wm_status.setStyleSheet(
+                f"color: {self.theme.get_color('error')};"
+            )
+            self._wm_status.setText("Watermark failed.")
+            QMessageBox.critical(self, "Error", message)
+
     # -- History callbacks ─────────────────────────────────────────────────────
 
     def _on_tab_change(self, index: int):
-        if index == 4:
+        if index == 6:
             self._refresh_history()
 
     def _refresh_history(self):
@@ -1191,7 +1605,7 @@ class PDFMergerApp(QMainWindow):
         self.progress_bar.setValue(100 if success else 0)
 
         if success:
-            self._set_status(f"Done! Saved to: {self._output_path}")
+            self._set_status(f"Done! Saved: {os.path.basename(self._output_path)}")
             QMessageBox.information(self, "Success", message)
 
             output_pwd = self._ask_output_password()
