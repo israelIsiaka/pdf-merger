@@ -6,11 +6,13 @@ on:
       - "v*"
   workflow_dispatch:   # allow manual runs from the GitHub UI
 
+# Opt into Node.js 24 for all GitHub-provided actions to silence the
+# Node.js 20 deprecation warnings introduced in early 2025.
 env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true   # silence Node.js 20 deprecation warnings
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
-  # ── macOS → produces PDF-Merger.dmg ────────────────────────────────────────
+  # ── macOS → produces PDF-Merger.dmg ──────────────────────────────────────
   build-macos:
     runs-on: macos-latest
     steps:
@@ -20,10 +22,10 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install dependencies
-        run: pip install pypdf Pillow py2app
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt pyinstaller
 
-      - name: Convert icon
+      - name: Convert PNG icon to ICNS
         run: python convert_icon.py
 
       - name: Build DMG
@@ -35,7 +37,42 @@ jobs:
           name: PDF-Merger-macOS
           path: dist/PDF-Merger.dmg
 
-  # ── Windows → produces PDF Merger.exe ──────────────────────────────────────
+  # ── Linux → produces PDF-Merger-Linux.tar.gz ─────────────────────────────
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y \
+            libxcb-cursor0 libxcb-icccm4 libxcb-image0 \
+            libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 \
+            libxcb-xinerama0 libxcb-xkb1 libxkbcommon-x11-0 \
+            libglib2.0-0 libegl1 libgl1 libdbus-1-3 \
+            libfontconfig1 libfreetype6
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt pyinstaller
+
+      - name: Build Linux bundle
+        run: python build.py linux
+
+      - name: Package as tarball
+        run: tar -czf dist/PDF-Merger-Linux.tar.gz -C dist/linux "PDF Merger"
+
+      - name: Upload Linux artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PDF-Merger-Linux
+          path: dist/PDF-Merger-Linux.tar.gz
+
+  # ── Windows → produces PDF Merger folder ─────────────────────────────────
   build-windows:
     runs-on: windows-latest
     steps:
@@ -45,8 +82,20 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install dependencies
-        run: pip install pypdf Pillow pyinstaller
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt pyinstaller
+
+      - name: Generate ICO from PNG
+        run: |
+          python -c "
+          from PIL import Image
+          import os
+          if os.path.exists('Logo.png') and not os.path.exists('Logo.ico'):
+              img = Image.open('Logo.png')
+              img.save('Logo.ico', format='ICO',
+                       sizes=[(16,16),(32,32),(48,48),(64,64),(128,128),(256,256)])
+              print('Logo.ico generated')
+          "
 
       - name: Build EXE
         run: python build.py windows

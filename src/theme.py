@@ -61,7 +61,7 @@ _DS_LIGHT: Dict[str, str] = {
 # Primary dark: #1e6abf on #111418 = 4.2:1 (UI), white text on it = 4.75:1 (WCAG AA).
 
 _DS_DARK: Dict[str, str] = {
-    "bg":                 "#111418",
+    "bg":                 "#0a0c0f",
     "fg":                 "#dee3e8",
     "button_bg":          "#1e6abf",
     "button_fg":          "#ffffff",
