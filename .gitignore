@@ -29,6 +29,10 @@ ENV/
 env/
 .venv
 
+# Local secrets — never commit
+server/.env.local
+*.db
+
 # IDE
 .vscode/
 .idea/

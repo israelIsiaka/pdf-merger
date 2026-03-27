@@ -12,7 +12,7 @@ Retina / HiDPI displays are handled via device-pixel-ratio scaling.
 
 import os
 
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QColor, QFont, QImage, QPainter, QPixmap
 from PyQt6.QtWidgets import (
     QApplication, QDialog, QFileDialog, QHBoxLayout, QLabel,
@@ -113,6 +113,11 @@ class PDFViewerWidget(QWidget):
       Unlocking loads the companion _peep_full.pdf with the password.
     """
 
+    # Emitted when a PDF is successfully opened; carries the file path.
+    pdf_loaded = pyqtSignal(str)
+    # Emitted when the "Annotate / Sign" button is clicked; carries the path.
+    annotate_requested = pyqtSignal(str)
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self._pdf_path    = ""     # file the user opened
@@ -159,6 +164,18 @@ class PDFViewerWidget(QWidget):
         self._info_lbl.setObjectName("hintLabel")
         action_row.addWidget(self._info_lbl)
         action_row.addStretch()
+
+        self._annotate_btn = QPushButton("Annotate / Sign")
+        self._annotate_btn.setObjectName("secondaryBtn")
+        self._annotate_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._annotate_btn.setToolTip(
+            "Stamp name, date, title or custom text onto this PDF"
+        )
+        self._annotate_btn.clicked.connect(
+            lambda: self.annotate_requested.emit(self._pdf_path)
+        )
+        self._annotate_btn.setVisible(False)
+        action_row.addWidget(self._annotate_btn)
 
         self._unlock_btn = QPushButton("Unlock Remaining Pages")
         self._unlock_btn.setObjectName("primaryBtn")
@@ -220,7 +237,9 @@ class PDFViewerWidget(QWidget):
         self._is_peep     = False
         self._path_edit.setText(os.path.basename(path))
         self._path_edit.setToolTip(path)
+        self._annotate_btn.setVisible(True)
         self._load_pdf()
+        self.pdf_loaded.emit(path)
 
     # -- Internal load ────────────────────────────────────────────────────────
 

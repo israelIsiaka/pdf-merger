@@ -183,10 +183,12 @@ class PDFCompressor:
             if progress_callback:
                 progress_callback(int(15 + (i / total) * 65))
 
-            pix        = page.get_pixmap(matrix=mat, alpha=False)
-            img_bytes  = pix.tobytes("jpeg", jpg_quality=_HIGH_JPEG_QUAL)
-            new_page   = out.new_page(width=page.rect.width, height=page.rect.height)
+            pix       = page.get_pixmap(matrix=mat, alpha=False)
+            img_bytes = pix.tobytes("jpeg", jpg_quality=_HIGH_JPEG_QUAL)
+            del pix                                           # free RGBA bitmap immediately
+            new_page  = out.new_page(width=page.rect.width, height=page.rect.height)
             new_page.insert_image(new_page.rect, stream=img_bytes)
+            del img_bytes                                     # free JPEG bytes after insert
 
         src.close()
 

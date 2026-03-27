@@ -14,12 +14,40 @@ def build_stylesheet(c: Dict[str, str], font_family: str) -> str:
         font-family: "{font_family}";
         font-size: 13px;
     }}
+    QStackedWidget {{
+        background-color: #080c18;
+    }}
 
     QLabel#appTitle {{
         font-size: 22px;
         font-weight: bold;
         color: {c['label_main']};
-        padding-bottom: 4px;
+        padding-bottom: 2px;
+    }}
+    QLabel#privacyBanner {{
+        font-size: 11px;
+        color: {c['success']};
+        padding: 3px 0 6px 0;
+        letter-spacing: 0.3px;
+    }}
+
+    /* ── Home button strip ── */
+    QWidget#homeStrip {{
+        background-color: #080c18;
+    }}
+    QPushButton#homeBtn {{
+        background-color: #4f7ef722;
+        color: #4f7ef7;
+        border: 1px solid #4f7ef744;
+        border-radius: 6px;
+        padding: 2px 14px;
+        font-size: 12px;
+        font-weight: 600;
+    }}
+    QPushButton#homeBtn:hover {{
+        background-color: #4f7ef733;
+        border-color: #4f7ef7;
+        color: #93b4fb;
     }}
     QLabel#fieldLabel {{
         font-size: 12px;
@@ -64,12 +92,18 @@ def build_stylesheet(c: Dict[str, str], font_family: str) -> str:
 
     /* Tabs */
     QTabWidget#mainTabs::pane {{
-        background-color: {c['bg']};
+        background-color: #080c18;
         border: none;
     }}
+    QWidget#toolsPage, QWidget#tabPage {{
+        background-color: #080c18;
+    }}
+    QTabWidget#mainTabs QTabBar {{
+        background-color: #080c18;
+    }}
     QTabWidget#mainTabs QTabBar::tab {{
-        background-color: {c['secondary_btn_bg']};
-        color: {c['label_main']};
+        background-color: #0d1220;
+        color: #64748b;
         padding: 10px 32px;
         border: none;
         border-radius: 6px 6px 0px 0px;
@@ -79,14 +113,17 @@ def build_stylesheet(c: Dict[str, str], font_family: str) -> str:
         min-width: 100px;
     }}
     QTabWidget#mainTabs QTabBar::tab:selected {{
-        background-color: {c['bg']};
-        color: {c['button_bg']};
+        background-color: #131929;
+        color: #e2e8f0;
+        border-bottom: 2px solid #4f7ef7;
     }}
     QTabWidget#mainTabs QTabBar::tab:hover:!selected {{
-        background-color: {c['secondary_btn_hover']};
+        background-color: #0f1628;
+        color: #94a3b8;
     }}
-    QWidget#tabPage {{
-        background-color: {c['bg']};
+    QTabWidget#mainTabs QTabBar::tab:first {{
+        color: #4f7ef7;
+        font-weight: bold;
     }}
 
     /* Primary action button (large CTA) */

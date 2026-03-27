@@ -12,7 +12,27 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
-  # ── macOS → produces PDF-Merger.dmg ──────────────────────────────────────
+  # ── Security audit (runs on every push, not just tags) ───────────────────
+  security-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install audit tools
+        run: pip install bandit pip-audit
+
+      - name: bandit — static security analysis
+        # B101: assert statements are intentional in tests; skip to reduce noise
+        run: bandit -r src/ -ll -ii --skip B101
+
+      - name: pip-audit — known CVE scan
+        run: pip-audit -r requirements.txt
+
+  # ── macOS → produces PDF-Merger.dmg  (Nuitka — native binary) ────────────
   build-macos:
     runs-on: macos-latest
     steps:
@@ -23,12 +43,12 @@ jobs:
           python-version: "3.11"
 
       - name: Install Python dependencies
-        run: pip install -r requirements.txt pyinstaller
+        run: pip install -r requirements.txt nuitka ordered-set zstandard
 
       - name: Convert PNG icon to ICNS
         run: python convert_icon.py
 
-      - name: Build DMG
+      - name: Build DMG (Nuitka)
         run: python build.py macos
 
       - name: Upload DMG artifact
@@ -37,7 +57,7 @@ jobs:
           name: PDF-Merger-macOS
           path: dist/PDF-Merger.dmg
 
-  # ── Linux → produces PDF-Merger-Linux.tar.gz ─────────────────────────────
+  # ── Linux → produces PDF-Merger-Linux.tar.gz  (Nuitka — native binary) ───
   build-linux:
     runs-on: ubuntu-latest
     steps:
@@ -55,16 +75,17 @@ jobs:
             libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 \
             libxcb-xinerama0 libxcb-xkb1 libxkbcommon-x11-0 \
             libglib2.0-0 libegl1 libgl1 libdbus-1-3 \
-            libfontconfig1 libfreetype6
+            libfontconfig1 libfreetype6 \
+            patchelf  # required by Nuitka on Linux for standalone builds
 
       - name: Install Python dependencies
-        run: pip install -r requirements.txt pyinstaller
+        run: pip install -r requirements.txt nuitka ordered-set zstandard
 
-      - name: Build Linux bundle
+      - name: Build Linux binary (Nuitka)
         run: python build.py linux
 
       - name: Package as tarball
-        run: tar -czf dist/PDF-Merger-Linux.tar.gz -C dist/linux "PDF Merger"
+        run: tar -czf dist/PDF-Merger-Linux.tar.gz -C dist/linux-nuitka pdf-merger
 
       - name: Upload Linux artifact
         uses: actions/upload-artifact@v4
@@ -72,7 +93,7 @@ jobs:
           name: PDF-Merger-Linux
           path: dist/PDF-Merger-Linux.tar.gz
 
-  # ── Windows → produces PDF Merger folder ─────────────────────────────────
+  # ── Windows → produces PDF-Merger.exe  (Nuitka — native binary) ──────────
   build-windows:
     runs-on: windows-latest
     steps:
@@ -83,7 +104,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install Python dependencies
-        run: pip install -r requirements.txt pyinstaller
+        run: pip install -r requirements.txt nuitka ordered-set zstandard
 
       - name: Generate ICO from PNG
         run: |
@@ -97,11 +118,11 @@ jobs:
               print('Logo.ico generated')
           "
 
-      - name: Build EXE
+      - name: Build EXE (Nuitka)
         run: python build.py windows
 
       - name: Upload EXE artifact
         uses: actions/upload-artifact@v4
         with:
           name: PDF-Merger-Windows
-          path: "dist/windows/PDF Merger/"
+          path: "dist/windows-nuitka/PDF Merger.exe"

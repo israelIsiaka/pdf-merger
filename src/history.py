@@ -21,8 +21,9 @@ class HistoryManager:
         try:
             with open(HISTORY_FILE, encoding="utf-8") as f:
                 data = json.load(f)
-                if isinstance(data, list):
-                    return data
+            if isinstance(data, list):
+                # Discard any entries that aren't plain dicts (corrupt / hand-edited file)
+                return [e for e in data if isinstance(e, dict)]
         except Exception:
             pass
         return []
@@ -78,6 +79,78 @@ class HistoryManager:
             "type": f"Compress ({level_label})",
             "output": os.path.basename(output_path),
             "sources": 1,
+            "timestamp": datetime.datetime.now().isoformat(timespec="seconds"),
+            "password_protected": False,
+        })
+        self._entries = self._entries[:MAX_ENTRIES]
+        self._save()
+
+    def add_annotate(self, output_path: str) -> None:
+        """Record an annotate/sign operation."""
+        self._entries.insert(0, {
+            "type": "Annotate",
+            "output": os.path.basename(output_path),
+            "sources": 1,
+            "timestamp": datetime.datetime.now().isoformat(timespec="seconds"),
+            "password_protected": False,
+        })
+        self._entries = self._entries[:MAX_ENTRIES]
+        self._save()
+
+    def add_split(self, output_dir: str, count: int):
+        """Record a split operation."""
+        self._entries.insert(0, {
+            "type": "Split",
+            "output": os.path.basename(output_dir),
+            "sources": count,
+            "timestamp": datetime.datetime.now().isoformat(timespec="seconds"),
+            "password_protected": False,
+        })
+        self._entries = self._entries[:MAX_ENTRIES]
+        self._save()
+
+    def add_pdf_to_word(self, output_path: str):
+        """Record a PDF-to-Word conversion."""
+        self._entries.insert(0, {
+            "type": "PDF to Word",
+            "output": os.path.basename(output_path),
+            "sources": 1,
+            "timestamp": datetime.datetime.now().isoformat(timespec="seconds"),
+            "password_protected": False,
+        })
+        self._entries = self._entries[:MAX_ENTRIES]
+        self._save()
+
+    def add_word_to_pdf(self, output_path: str):
+        """Record a Word-to-PDF conversion."""
+        self._entries.insert(0, {
+            "type": "Word to PDF",
+            "output": os.path.basename(output_path),
+            "sources": 1,
+            "timestamp": datetime.datetime.now().isoformat(timespec="seconds"),
+            "password_protected": False,
+        })
+        self._entries = self._entries[:MAX_ENTRIES]
+        self._save()
+
+    def add_pdf_to_images(self, output_dir: str, count: int):
+        """Record a PDF-to-Images conversion."""
+        self._entries.insert(0, {
+            "type": "PDF to Images",
+            "output": os.path.basename(output_dir),
+            "sources": count,
+            "timestamp": datetime.datetime.now().isoformat(timespec="seconds"),
+            "password_protected": False,
+        })
+        self._entries = self._entries[:MAX_ENTRIES]
+        self._save()
+
+    def add_images_to_pdf(self, output_path: str, count: int):
+        """Record an Images-to-PDF conversion."""
+        self._entries.insert(0, {
+            "type": "Images to PDF",
+            "output": os.path.basename(output_path),
+            "sources": count,
             "timestamp": datetime.datetime.now().isoformat(timespec="seconds"),
             "password_protected": False,
         })

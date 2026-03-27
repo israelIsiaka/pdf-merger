@@ -144,6 +144,46 @@ class _WatermarkPreviewWorker(QThread):
             self.preview_ready.emit(result)
 
 
+class _AnnotateWorker(QThread):
+    progress_changed = pyqtSignal(int)
+    annotate_done    = pyqtSignal(bool, str)
+
+    def __init__(self, annotator, input_path: str, output_path: str,
+                 text_lines: list,
+                 text_pos_x: float, text_pos_y: float,
+                 frequency: str, custom_pages: str,
+                 font_size: int, color: str,
+                 sig_bytes: bytes = b"",
+                 sig_pos_x: float = 0.50, sig_pos_y: float = 0.72,
+                 sig_scale: float = 0.25):
+        super().__init__()
+        self._annotator   = annotator
+        self._input       = input_path
+        self._output      = output_path
+        self._lines       = text_lines
+        self._text_pos_x  = text_pos_x
+        self._text_pos_y  = text_pos_y
+        self._frequency   = frequency
+        self._custom_pages = custom_pages
+        self._font_size   = font_size
+        self._color       = color
+        self._sig_bytes   = sig_bytes
+        self._sig_pos_x   = sig_pos_x
+        self._sig_pos_y   = sig_pos_y
+        self._sig_scale   = sig_scale
+
+    def run(self):
+        success, msg = self._annotator.apply(
+            self._input, self._output, self._lines,
+            self._text_pos_x, self._text_pos_y,
+            self._frequency, self._custom_pages,
+            self._font_size, self._color,
+            self._sig_bytes, self._sig_pos_x, self._sig_pos_y, self._sig_scale,
+            progress_callback=self.progress_changed.emit,
+        )
+        self.annotate_done.emit(success, msg)
+
+
 class _RenderWorker(QThread):
     """Render PDF pages to QImages in a background thread using PyMuPDF."""
     page_ready  = pyqtSignal(int, object)   # (page_index, QImage)
@@ -192,3 +232,103 @@ class _RenderWorker(QThread):
             pass
         finally:
             self.render_done.emit()
+
+
+class _SplitWorker(QThread):
+    progress_changed = pyqtSignal(int)
+    split_done       = pyqtSignal(bool, str)
+
+    def __init__(self, splitter, input_path: str, output_dir: str,
+                 mode: str, ranges_str: str = "", every_n: int = 1):
+        super().__init__()
+        self._splitter   = splitter
+        self._input      = input_path
+        self._output_dir = output_dir
+        self._mode       = mode
+        self._ranges_str = ranges_str
+        self._every_n    = every_n
+
+    def run(self):
+        success, msg = self._splitter.split(
+            self._input, self._output_dir, self._mode,
+            self._ranges_str, self._every_n,
+            progress_callback=self.progress_changed.emit,
+        )
+        self.split_done.emit(success, msg)
+
+
+class _PdfToWordWorker(QThread):
+    progress_changed = pyqtSignal(int)
+    convert_done     = pyqtSignal(bool, str)
+
+    def __init__(self, converter, input_path: str, output_path: str):
+        super().__init__()
+        self._converter = converter
+        self._input     = input_path
+        self._output    = output_path
+
+    def run(self):
+        success, msg = self._converter.convert(
+            self._input, self._output,
+            progress_callback=self.progress_changed.emit,
+        )
+        self.convert_done.emit(success, msg)
+
+
+class _WordToPdfWorker(QThread):
+    progress_changed = pyqtSignal(int)
+    convert_done     = pyqtSignal(bool, str)
+
+    def __init__(self, converter, input_path: str, output_path: str):
+        super().__init__()
+        self._converter = converter
+        self._input     = input_path
+        self._output    = output_path
+
+    def run(self):
+        success, msg = self._converter.convert(
+            self._input, self._output,
+            progress_callback=self.progress_changed.emit,
+        )
+        self.convert_done.emit(success, msg)
+
+
+class _PdfToImagesWorker(QThread):
+    progress_changed = pyqtSignal(int)
+    convert_done     = pyqtSignal(bool, str)
+
+    def __init__(self, converter, input_path: str, output_dir: str,
+                 fmt: str, dpi: int, pages_str: str):
+        super().__init__()
+        self._converter  = converter
+        self._input      = input_path
+        self._output_dir = output_dir
+        self._fmt        = fmt
+        self._dpi        = dpi
+        self._pages_str  = pages_str
+
+    def run(self):
+        success, msg = self._converter.convert(
+            self._input, self._output_dir,
+            self._fmt, self._dpi, self._pages_str,
+            progress_callback=self.progress_changed.emit,
+        )
+        self.convert_done.emit(success, msg)
+
+
+class _ImagesToPdfWorker(QThread):
+    progress_changed = pyqtSignal(int)
+    convert_done     = pyqtSignal(bool, str)
+
+    def __init__(self, converter, image_paths: list, output_path: str):
+        super().__init__()
+        self._converter   = converter
+        self._image_paths = image_paths
+        self._output      = output_path
+
+    def run(self):
+        success, msg = self._converter.convert(
+            self._image_paths, self._output,
+            progress_callback=self.progress_changed.emit,
+        )
+        self.convert_done.emit(success, msg)

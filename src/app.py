@@ -16,14 +16,20 @@ from PyQt6.QtWidgets import (
     QTreeWidget, QTreeWidgetItem, QProgressBar,
     QSpinBox, QComboBox, QFileDialog, QMessageBox,
     QHeaderView, QAbstractItemView, QStyle, QScrollArea,
-    QButtonGroup, QRadioButton, QSlider,
+    QButtonGroup, QRadioButton, QSlider, QStackedWidget,
 )
 
+from .annotation_dialog import _AnnotateDialog
+from .annotation_profiles import AnnotationProfilesManager
+from .annotator import PDFAnnotator
 from .compressor import PDFCompressor, LEVEL_LIGHT, LEVEL_MEDIUM, LEVEL_HIGH, LEVEL_LABELS, LEVEL_DESCRIPTIONS
+from .converter import (PDFToWordConverter, WordToPDFConverter,
+                        PDFToImagesConverter, ImagesToPDFConverter)
 from .faq import build_faq_widget
 from .dialogs import _PasswordDialog
 from .history import HistoryManager
 from .merger import PDFMerger
+from .splitter import PDFSplitter
 from .stylesheet import build_stylesheet
 from .theme import ThemeManager
 from .utils import PlatformInfo
@@ -32,7 +38,9 @@ from .watermark import (PDFWatermarker, POSITION_GRID, POSITION_LABELS,
                         POS_MID_CENTER, FREQ_LABELS,
                         FREQ_ALL, FREQ_ODD, FREQ_EVEN, FREQ_FIRST, FREQ_LAST)
 from .workers import (_MergeWorker, _ProtectWorker, _PeepWorker,
-                      _CompressWorker, _WatermarkWorker, _WatermarkPreviewWorker)
+                      _CompressWorker, _WatermarkWorker, _WatermarkPreviewWorker,
+                      _SplitWorker, _PdfToWordWorker, _WordToPdfWorker,
+                      _PdfToImagesWorker, _ImagesToPdfWorker)
 
 
 # -- Main application window ───────────────────────────────────────────────────
@@ -40,13 +48,21 @@ from .workers import (_MergeWorker, _ProtectWorker, _PeepWorker,
 class PDFMergerApp(QMainWindow):
     """Main application window for PDF Merger."""
 
-    def __init__(self):
+    def __init__(self, license_mgr=None):
         super().__init__()
-        self.theme      = ThemeManager()
-        self.merger     = PDFMerger()
-        self.history    = HistoryManager()
-        self.compressor  = PDFCompressor()
-        self.watermarker = PDFWatermarker()
+        self._license_mgr      = license_mgr
+        self.theme             = ThemeManager()
+        self.merger            = PDFMerger()
+        self.history           = HistoryManager()
+        self.compressor        = PDFCompressor()
+        self.watermarker       = PDFWatermarker()
+        self.annotator         = PDFAnnotator()
+        self.annotation_profiles = AnnotationProfilesManager()
+        self.splitter          = PDFSplitter()
+        self.pdf_to_word       = PDFToWordConverter()
+        self.word_to_pdf       = WordToPDFConverter()
+        self.pdf_to_images     = PDFToImagesConverter()
+        self.images_to_pdf     = ImagesToPDFConverter()
 
         self._merge_worker      = None
         self._protect_worker    = None
@@ -54,6 +70,11 @@ class PDFMergerApp(QMainWindow):
         self._compress_worker   = None
         self._wm_worker         = None
         self._wm_preview_worker = None
+        self._split_worker      = None
+        self._p2w_worker        = None
+        self._w2p_worker        = None
+        self._p2i_worker        = None
+        self._i2p_worker        = None
 
         # Full paths for file fields (displayed as basename only)
         self._protect_input_path   = ""
@@ -67,6 +88,16 @@ class PDFMergerApp(QMainWindow):
         self._wm_page_index        = 0
         self._wm_page_count        = 0
         self._wm_preview_timer     = None   # created after _build_ui
+        self._split_input_path     = ""
+        self._split_output_dir     = ""
+        self._p2w_input_path       = ""
+        self._p2w_output_path      = ""
+        self._w2p_input_path       = ""
+        self._w2p_output_path      = ""
+        self._p2i_input_path       = ""
+        self._p2i_output_dir       = ""
+        self._i2p_image_paths: list = []
+        self._i2p_output_path      = ""
 
         self._source_count   = 0
         self._output_path    = ""
@@ -142,28 +173,81 @@ class PDFMergerApp(QMainWindow):
         self.setCentralWidget(central)
 
         root = QVBoxLayout(central)
-        root.setContentsMargins(28, 24, 28, 24)
-        root.setSpacing(18)
+        root.setContentsMargins(0, 0, 0, 0)
+        root.setSpacing(0)
 
-        title = QLabel("PDF Merger")
-        title.setObjectName("appTitle")
-        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        root.addWidget(title)
+        # ── Stacked widget: page 0 = home, page 1 = tools ────────────────────
+        self._stack = QStackedWidget()
+        root.addWidget(self._stack)
+
+        # Page 0 — home view
+        from .home_view import HomeView
+        self._home_view = HomeView()
+        self._home_view.tool_selected.connect(self._open_tool)
+        self._stack.addWidget(self._home_view)
+
+        # Page 1 — tools view (constellation background + tabs)
+        from .home_view import _ConstellationBg
+        tools_page = QWidget()
+        tools_page.setObjectName("toolsPage")
+        tpl = QVBoxLayout(tools_page)
+        tpl.setContentsMargins(0, 0, 0, 0)
+        tpl.setSpacing(0)
+
+        # Constellation background for tools page
+        self._tools_bg = _ConstellationBg(tools_page)
+        self._tools_bg.lower()
+
+        # Home button strip
+        home_strip = QWidget()
+        home_strip.setObjectName("homeStrip")
+        home_strip.setFixedHeight(40)
+        home_strip.setAutoFillBackground(False)
+        hs_layout = QHBoxLayout(home_strip)
+        hs_layout.setContentsMargins(16, 4, 16, 4)
+        hs_layout.setSpacing(0)
+
+        home_btn = QPushButton("  Home")
+        home_btn.setObjectName("homeBtn")
+        home_btn.setFixedHeight(28)
+        home_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        home_btn.clicked.connect(lambda: self._stack.setCurrentIndex(0))
+        hs_layout.addWidget(home_btn)
+        hs_layout.addStretch()
+
+        tpl.addWidget(home_strip)
 
         self.tabs = QTabWidget()
         self.tabs.setObjectName("mainTabs")
-        root.addWidget(self.tabs)
 
-        self.tabs.addTab(self._build_merge_tab(),      "  Merge PDFs  ")
-        self.tabs.addTab(self._build_protect_tab(),    "  Protect PDF  ")
-        self.tabs.addTab(self._build_peep_tab(),       "  Peep  ")
-        self.tabs.addTab(self._build_viewer_tab(),     "  View PDF  ")
-        self.tabs.addTab(self._build_compress_tab(),   "  Compress PDF  ")
-        self.tabs.addTab(self._build_watermark_tab(),  "  Watermark  ")
-        self.tabs.addTab(self._build_history_tab(),    "  History  ")
-        self.tabs.addTab(self._build_help_tab(),       "  Help / FAQ  ")
+        self.tabs.addTab(self._build_merge_tab(),        "  Merge PDFs  ")
+        self.tabs.addTab(self._build_protect_tab(),      "  Protect PDF  ")
+        self.tabs.addTab(self._build_peep_tab(),         "  Peep  ")
+        self.tabs.addTab(self._build_viewer_tab(),       "  View PDF  ")
+        self.tabs.addTab(self._build_compress_tab(),     "  Compress PDF  ")
+        self.tabs.addTab(self._build_watermark_tab(),    "  Watermark  ")
+        self.tabs.addTab(self._build_split_tab(),        "  Split PDF  ")
+        self.tabs.addTab(self._build_pdf_to_word_tab(),  "  PDF to Word  ")
+        self.tabs.addTab(self._build_word_to_pdf_tab(),  "  Word to PDF  ")
+        self.tabs.addTab(self._build_pdf_to_img_tab(),   "  PDF to Image  ")
+        self.tabs.addTab(self._build_img_to_pdf_tab(),   "  Image to PDF  ")
+        self.tabs.addTab(self._build_history_tab(),      "  History  ")
+        self.tabs.addTab(self._build_help_tab(),         "  Help / FAQ  ")
 
+        self.tabs.setUsesScrollButtons(True)
         self.tabs.currentChanged.connect(self._on_tab_change)
+
+        tpl.addWidget(self.tabs)
+        self._stack.addWidget(tools_page)
+
+    def resizeEvent(self, e):
+        super().resizeEvent(e)
+        if hasattr(self, '_tools_bg') and self._tools_bg.parent():
+            self._tools_bg.resize(self._tools_bg.parent().size())
+
+    def _open_tool(self, tab_index: int):
+        self.tabs.setCurrentIndex(tab_index)
+        self._stack.setCurrentIndex(1)
 
     # -- Merge tab ─────────────────────────────────────────────────────────────
 
@@ -446,8 +530,30 @@ class PDFMergerApp(QMainWindow):
         layout.setSpacing(0)
 
         self._viewer = PDFViewerWidget(tab)
+        self._viewer.annotate_requested.connect(self._open_annotate_dialog)
         layout.addWidget(self._viewer)
         return tab
+
+    def _open_annotate_dialog(self, pdf_path: str) -> None:
+        if not pdf_path:
+            return
+        dlg = _AnnotateDialog(
+            parent    = self,
+            input_path = pdf_path,
+            profiles  = self.annotation_profiles,
+            annotator = self.annotator,
+        )
+        if dlg.exec() == QDialog.DialogCode.Accepted and dlg.output_path:
+            self.history.add_annotate(dlg.output_path)
+            self._refresh_history()
+            reply = QMessageBox.question(
+                self,
+                "Annotation Complete",
+                f"Saved as: {os.path.basename(dlg.output_path)}\n\nOpen in viewer?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            )
+            if reply == QMessageBox.StandardButton.Yes:
+                self._viewer.load_pdf(dlg.output_path)
 
     # -- Compress PDF tab ──────────────────────────────────────────────────────
 
@@ -584,12 +690,27 @@ class PDFMergerApp(QMainWindow):
         if level == -1:
             return err("Please select a compression level.")
 
+        if not self._check_output_dir(output_path):
+            return
+
         if (os.path.realpath(output_path) != os.path.realpath(input_path)
                 and os.path.exists(output_path)):
             reply = QMessageBox.question(
                 self, "File Already Exists",
                 f"'{os.path.basename(output_path)}' already exists.\nOverwrite it?",
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            )
+            if reply != QMessageBox.StandardButton.Yes:
+                return
+
+        if level == LEVEL_HIGH:
+            reply = QMessageBox.warning(
+                self, "Lossy Compression",
+                "Level 3 (High) compression converts each page into a JPEG image.\n\n"
+                "Text will no longer be selectable or searchable, and visual quality "
+                "may be reduced.\n\nContinue?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
             )
             if reply != QMessageBox.StandardButton.Yes:
                 return
@@ -608,6 +729,7 @@ class PDFMergerApp(QMainWindow):
         self._compress_worker.compress_done.connect(
             lambda ok, msg: self._compress_done(ok, msg, output_path, level)
         )
+        self._compress_worker.finished.connect(self._compress_worker.deleteLater)
         self._compress_worker.start()
 
     def _compress_done(self, success: bool, message: str, output_path: str, level: int):
@@ -622,11 +744,822 @@ class PDFMergerApp(QMainWindow):
             )
             self.history.add_compress(output_path, LEVEL_LABELS[level])
             QMessageBox.information(self, "Compressed", message)
+            self._ask_open_in_viewer(output_path)
         else:
             self._compress_status.setStyleSheet(
                 f"color: {self.theme.get_color('error')};"
             )
             self._compress_status.setText("Compression failed.")
+            QMessageBox.critical(self, "Error", message)
+
+    # -- Split PDF tab ─────────────────────────────────────────────────────────
+
+    def _build_split_tab(self) -> QWidget:
+        SP  = QStyle.StandardPixmap
+        tab = QWidget()
+        tab.setObjectName("tabPage")
+        layout = QVBoxLayout(tab)
+        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(12)
+
+        desc = QLabel(
+            "Split a PDF into multiple files by individual pages, custom page ranges, "
+            "or fixed-size chunks."
+        )
+        desc.setObjectName("descLabel")
+        desc.setWordWrap(True)
+        layout.addWidget(desc)
+
+        # Input
+        layout.addWidget(self._field_label("Select PDF:"))
+        in_row = QHBoxLayout(); in_row.setSpacing(8)
+        self._split_input = QLineEdit()
+        self._split_input.setObjectName("inputField")
+        self._split_input.setPlaceholderText("Select a PDF with Browse...")
+        self._split_input.setReadOnly(True)
+        in_row.addWidget(self._split_input)
+        b_in = self._secondary_btn("Browse...", SP.SP_DirOpenIcon)
+        b_in.setFixedWidth(120)
+        b_in.clicked.connect(self._browse_split_input)
+        in_row.addWidget(b_in)
+        layout.addLayout(in_row)
+
+        # Output folder
+        layout.addWidget(self._field_label("Output Folder:"))
+        out_row = QHBoxLayout(); out_row.setSpacing(8)
+        self._split_output = QLineEdit()
+        self._split_output.setObjectName("inputField")
+        self._split_output.setPlaceholderText("Choose destination folder...")
+        self._split_output.setReadOnly(True)
+        out_row.addWidget(self._split_output)
+        b_out = self._secondary_btn("Browse...", SP.SP_DirOpenIcon)
+        b_out.setFixedWidth(120)
+        b_out.clicked.connect(self._browse_split_output)
+        out_row.addWidget(b_out)
+        layout.addLayout(out_row)
+
+        # Mode
+        layout.addSpacing(4)
+        layout.addWidget(self._field_label("Split Mode:"))
+        self._split_mode_group = QButtonGroup(self)
+
+        rb_all = QRadioButton("Every page  (one PDF per page)")
+        rb_all.setChecked(True)
+        rb_all.setObjectName("radioBtn")
+        self._split_mode_group.addButton(rb_all, 0)
+        layout.addWidget(rb_all)
+
+        rb_ranges = QRadioButton("Custom ranges  (e.g. 1-3, 4-7, 8)")
+        rb_ranges.setObjectName("radioBtn")
+        self._split_mode_group.addButton(rb_ranges, 1)
+        layout.addWidget(rb_ranges)
+
+        self._split_ranges_edit = QLineEdit()
+        self._split_ranges_edit.setObjectName("inputField")
+        self._split_ranges_edit.setPlaceholderText("e.g.  1-3, 4-7, 8")
+        self._split_ranges_edit.setEnabled(False)
+        layout.addWidget(self._split_ranges_edit)
+
+        rb_every = QRadioButton("Every N pages")
+        rb_every.setObjectName("radioBtn")
+        self._split_mode_group.addButton(rb_every, 2)
+        layout.addWidget(rb_every)
+
+        every_row = QHBoxLayout(); every_row.setSpacing(8)
+        every_row.addWidget(QLabel("Pages per chunk:"))
+        self._split_every_spin = QSpinBox()
+        self._split_every_spin.setObjectName("spinBox")
+        self._split_every_spin.setRange(1, 9999)
+        self._split_every_spin.setValue(2)
+        self._split_every_spin.setFixedWidth(80)
+        self._split_every_spin.setEnabled(False)
+        every_row.addWidget(self._split_every_spin)
+        every_row.addStretch()
+        layout.addLayout(every_row)
+
+        def _update_split_mode():
+            mid = self._split_mode_group.checkedId()
+            self._split_ranges_edit.setEnabled(mid == 1)
+            self._split_every_spin.setEnabled(mid == 2)
+
+        rb_ranges.toggled.connect(lambda _: _update_split_mode())
+        rb_every.toggled.connect(lambda _: _update_split_mode())
+        rb_all.toggled.connect(lambda _: _update_split_mode())
+
+        # Progress + status
+        layout.addSpacing(4)
+        self._split_progress = self._make_progress()
+        layout.addWidget(self._split_progress)
+        self._split_status = QLabel("")
+        self._split_status.setObjectName("statusLabel")
+        layout.addWidget(self._split_status)
+
+        layout.addStretch()
+
+        self._split_btn = self._primary_btn("Split PDF")
+        self._split_btn.setFixedHeight(52)
+        self._split_btn.clicked.connect(self._do_split)
+        layout.addWidget(self._split_btn)
+
+        return tab
+
+    def _browse_split_input(self):
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Select PDF to Split", "", "PDF Files (*.pdf)"
+        )
+        if path:
+            self._split_input_path = path
+            self._split_input.setText(os.path.basename(path))
+            self._split_input.setToolTip(path)
+            if not self._split_output_dir:
+                default_dir = os.path.join(
+                    os.path.dirname(path),
+                    os.path.splitext(os.path.basename(path))[0] + "_split",
+                )
+                self._split_output_dir = default_dir
+                self._split_output.setText(os.path.basename(default_dir))
+                self._split_output.setToolTip(default_dir)
+
+    def _browse_split_output(self):
+        d = QFileDialog.getExistingDirectory(self, "Select Output Folder")
+        if d:
+            self._split_output_dir = d
+            self._split_output.setText(os.path.basename(d))
+            self._split_output.setToolTip(d)
+
+    def _do_split(self):
+        def err(msg):
+            self._split_status.setStyleSheet(f"color: {self.theme.get_color('error')};")
+            self._split_status.setText(msg)
+
+        if not self._split_input_path or not os.path.isfile(self._split_input_path):
+            return err("Please select a valid PDF file.")
+        if not self._split_output_dir:
+            return err("Please select an output folder.")
+        if not self._check_output_folder(self._split_output_dir):
+            return
+
+        mid = self._split_mode_group.checkedId()
+        if mid == 0:
+            mode, ranges_str, every_n = "all", "", 1
+        elif mid == 1:
+            mode = "ranges"
+            ranges_str = self._split_ranges_edit.text().strip()
+            every_n = 1
+            if not ranges_str:
+                return err("Please enter at least one page range.")
+        else:
+            mode = "every_n"
+            ranges_str = ""
+            every_n = self._split_every_spin.value()
+
+        self._split_btn.setEnabled(False)
+        self._split_progress.setValue(0)
+        self._split_status.setStyleSheet("")
+        self._split_status.setText("Splitting...")
+
+        self._split_worker = _SplitWorker(
+            self.splitter, self._split_input_path, self._split_output_dir,
+            mode, ranges_str, every_n,
+        )
+        self._split_worker.progress_changed.connect(self._split_progress.setValue)
+        self._split_worker.split_done.connect(
+            lambda ok, msg: self._split_done(ok, msg)
+        )
+        self._split_worker.finished.connect(self._split_worker.deleteLater)
+        self._split_worker.start()
+
+    def _split_done(self, success: bool, message: str):
+        self._split_btn.setEnabled(True)
+        self._split_progress.setValue(100 if success else 0)
+        if success:
+            self._split_status.setStyleSheet(f"color: {self.theme.get_color('success')};")
+            self._split_status.setText(message)
+            self.history.add_split(self._split_output_dir, 0)
+            QMessageBox.information(self, "Split Complete", message)
+            self._ask_reveal_folder(self._split_output_dir)
+        else:
+            self._split_status.setStyleSheet(f"color: {self.theme.get_color('error')};")
+            self._split_status.setText("Split failed.")
+            QMessageBox.critical(self, "Error", message)
+
+    # -- PDF to Word tab ───────────────────────────────────────────────────────
+
+    def _build_pdf_to_word_tab(self) -> QWidget:
+        SP  = QStyle.StandardPixmap
+        tab = QWidget()
+        tab.setObjectName("tabPage")
+        layout = QVBoxLayout(tab)
+        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(12)
+
+        desc = QLabel(
+            "Convert a PDF to an editable Word document (.docx). "
+            "Requires the pdf2docx library (pip install pdf2docx)."
+        )
+        desc.setObjectName("descLabel")
+        desc.setWordWrap(True)
+        layout.addWidget(desc)
+
+        layout.addWidget(self._field_label("Select PDF:"))
+        in_row = QHBoxLayout(); in_row.setSpacing(8)
+        self._p2w_input = QLineEdit()
+        self._p2w_input.setObjectName("inputField")
+        self._p2w_input.setPlaceholderText("Select a PDF with Browse...")
+        self._p2w_input.setReadOnly(True)
+        in_row.addWidget(self._p2w_input)
+        b_in = self._secondary_btn("Browse...", SP.SP_DirOpenIcon)
+        b_in.setFixedWidth(120)
+        b_in.clicked.connect(self._browse_p2w_input)
+        in_row.addWidget(b_in)
+        layout.addLayout(in_row)
+
+        layout.addWidget(self._field_label("Save Word Document As:"))
+        out_row = QHBoxLayout(); out_row.setSpacing(8)
+        self._p2w_output = QLineEdit()
+        self._p2w_output.setObjectName("inputField")
+        self._p2w_output.setPlaceholderText("Output filename (auto-filled on browse)...")
+        self._p2w_output.setReadOnly(True)
+        out_row.addWidget(self._p2w_output)
+        b_out = self._secondary_btn("Browse...", SP.SP_DirOpenIcon)
+        b_out.setFixedWidth(120)
+        b_out.clicked.connect(self._browse_p2w_output)
+        out_row.addWidget(b_out)
+        layout.addLayout(out_row)
+
+        self._p2w_progress = self._make_progress()
+        layout.addWidget(self._p2w_progress)
+        self._p2w_status = QLabel("")
+        self._p2w_status.setObjectName("statusLabel")
+        layout.addWidget(self._p2w_status)
+
+        layout.addStretch()
+
+        self._p2w_btn = self._primary_btn("Convert to Word")
+        self._p2w_btn.setFixedHeight(52)
+        self._p2w_btn.clicked.connect(self._do_p2w)
+        layout.addWidget(self._p2w_btn)
+
+        return tab
+
+    def _browse_p2w_input(self):
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Select PDF", "", "PDF Files (*.pdf)"
+        )
+        if path:
+            self._p2w_input_path = path
+            self._p2w_input.setText(os.path.basename(path))
+            self._p2w_input.setToolTip(path)
+            if not self._p2w_output_path:
+                self._p2w_output_path = os.path.splitext(path)[0] + ".docx"
+                self._p2w_output.setText(os.path.basename(self._p2w_output_path))
+                self._p2w_output.setToolTip(self._p2w_output_path)
+
+    def _browse_p2w_output(self):
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Save Word Document As", "", "Word Documents (*.docx)"
+        )
+        if path:
+            self._p2w_output_path = path
+            self._p2w_output.setText(os.path.basename(path))
+            self._p2w_output.setToolTip(path)
+
+    def _do_p2w(self):
+        def err(msg):
+            self._p2w_status.setStyleSheet(f"color: {self.theme.get_color('error')};")
+            self._p2w_status.setText(msg)
+
+        if not self._p2w_input_path or not os.path.isfile(self._p2w_input_path):
+            return err("Please select a valid PDF file.")
+        if not self._p2w_output_path:
+            return err("Please set an output file path.")
+        if not self._check_output_dir(self._p2w_output_path):
+            return
+
+        self._p2w_btn.setEnabled(False)
+        self._p2w_progress.setValue(0)
+        self._p2w_status.setStyleSheet("")
+        self._p2w_status.setText("Converting...")
+
+        self._p2w_worker = _PdfToWordWorker(
+            self.pdf_to_word, self._p2w_input_path, self._p2w_output_path
+        )
+        self._p2w_worker.progress_changed.connect(self._p2w_progress.setValue)
+        self._p2w_worker.convert_done.connect(
+            lambda ok, msg: self._p2w_done(ok, msg)
+        )
+        self._p2w_worker.finished.connect(self._p2w_worker.deleteLater)
+        self._p2w_worker.start()
+
+    def _p2w_done(self, success: bool, message: str):
+        self._p2w_btn.setEnabled(True)
+        self._p2w_progress.setValue(100 if success else 0)
+        if success:
+            self._p2w_status.setStyleSheet(f"color: {self.theme.get_color('success')};")
+            self._p2w_status.setText(message)
+            self.history.add_pdf_to_word(self._p2w_output_path)
+            QMessageBox.information(self, "Conversion Complete", message)
+            self._ask_reveal_folder(self._p2w_output_path)
+        else:
+            self._p2w_status.setStyleSheet(f"color: {self.theme.get_color('error')};")
+            self._p2w_status.setText("Conversion failed.")
+            QMessageBox.critical(self, "Error", message)
+
+    # -- Word to PDF tab ───────────────────────────────────────────────────────
+
+    def _build_word_to_pdf_tab(self) -> QWidget:
+        SP  = QStyle.StandardPixmap
+        tab = QWidget()
+        tab.setObjectName("tabPage")
+        layout = QVBoxLayout(tab)
+        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(12)
+
+        desc = QLabel(
+            "Convert a Word document (.docx / .doc) to PDF. "
+            "Requires Microsoft Word or LibreOffice to be installed."
+        )
+        desc.setObjectName("descLabel")
+        desc.setWordWrap(True)
+        layout.addWidget(desc)
+
+        layout.addWidget(self._field_label("Select Word Document:"))
+        in_row = QHBoxLayout(); in_row.setSpacing(8)
+        self._w2p_input = QLineEdit()
+        self._w2p_input.setObjectName("inputField")
+        self._w2p_input.setPlaceholderText("Select a .docx file with Browse...")
+        self._w2p_input.setReadOnly(True)
+        in_row.addWidget(self._w2p_input)
+        b_in = self._secondary_btn("Browse...", SP.SP_DirOpenIcon)
+        b_in.setFixedWidth(120)
+        b_in.clicked.connect(self._browse_w2p_input)
+        in_row.addWidget(b_in)
+        layout.addLayout(in_row)
+
+        layout.addWidget(self._field_label("Save PDF As:"))
+        out_row = QHBoxLayout(); out_row.setSpacing(8)
+        self._w2p_output = QLineEdit()
+        self._w2p_output.setObjectName("inputField")
+        self._w2p_output.setPlaceholderText("Output filename (auto-filled on browse)...")
+        self._w2p_output.setReadOnly(True)
+        out_row.addWidget(self._w2p_output)
+        b_out = self._secondary_btn("Browse...", SP.SP_DirOpenIcon)
+        b_out.setFixedWidth(120)
+        b_out.clicked.connect(self._browse_w2p_output)
+        out_row.addWidget(b_out)
+        layout.addLayout(out_row)
+
+        self._w2p_progress = self._make_progress()
+        layout.addWidget(self._w2p_progress)
+        self._w2p_status = QLabel("")
+        self._w2p_status.setObjectName("statusLabel")
+        layout.addWidget(self._w2p_status)
+
+        layout.addStretch()
+
+        self._w2p_btn = self._primary_btn("Convert to PDF")
+        self._w2p_btn.setFixedHeight(52)
+        self._w2p_btn.clicked.connect(self._do_w2p)
+        layout.addWidget(self._w2p_btn)
+
+        return tab
+
+    def _browse_w2p_input(self):
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Select Word Document", "",
+            "Word Documents (*.docx *.doc)"
+        )
+        if path:
+            self._w2p_input_path = path
+            self._w2p_input.setText(os.path.basename(path))
+            self._w2p_input.setToolTip(path)
+            if not self._w2p_output_path:
+                self._w2p_output_path = os.path.splitext(path)[0] + ".pdf"
+                self._w2p_output.setText(os.path.basename(self._w2p_output_path))
+                self._w2p_output.setToolTip(self._w2p_output_path)
+
+    def _browse_w2p_output(self):
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Save PDF As", "", "PDF Files (*.pdf)"
+        )
+        if path:
+            self._w2p_output_path = path
+            self._w2p_output.setText(os.path.basename(path))
+            self._w2p_output.setToolTip(path)
+
+    def _do_w2p(self):
+        def err(msg):
+            self._w2p_status.setStyleSheet(f"color: {self.theme.get_color('error')};")
+            self._w2p_status.setText(msg)
+
+        if not self._w2p_input_path or not os.path.isfile(self._w2p_input_path):
+            return err("Please select a valid Word document.")
+        if not self._w2p_output_path:
+            return err("Please set an output file path.")
+        if not self._check_output_dir(self._w2p_output_path):
+            return
+
+        self._w2p_btn.setEnabled(False)
+        self._w2p_progress.setValue(0)
+        self._w2p_status.setStyleSheet("")
+        self._w2p_status.setText("Converting...")
+
+        self._w2p_worker = _WordToPdfWorker(
+            self.word_to_pdf, self._w2p_input_path, self._w2p_output_path
+        )
+        self._w2p_worker.progress_changed.connect(self._w2p_progress.setValue)
+        self._w2p_worker.convert_done.connect(
+            lambda ok, msg: self._w2p_done(ok, msg)
+        )
+        self._w2p_worker.finished.connect(self._w2p_worker.deleteLater)
+        self._w2p_worker.start()
+
+    def _w2p_done(self, success: bool, message: str):
+        self._w2p_btn.setEnabled(True)
+        self._w2p_progress.setValue(100 if success else 0)
+        if success:
+            self._w2p_status.setStyleSheet(f"color: {self.theme.get_color('success')};")
+            self._w2p_status.setText(message)
+            self.history.add_word_to_pdf(self._w2p_output_path)
+            QMessageBox.information(self, "Conversion Complete", message)
+            self._ask_open_in_viewer(self._w2p_output_path)
+        else:
+            self._w2p_status.setStyleSheet(f"color: {self.theme.get_color('error')};")
+            self._w2p_status.setText("Conversion failed.")
+            QMessageBox.critical(self, "Error", message)
+
+    # -- PDF to Image tab ──────────────────────────────────────────────────────
+
+    def _build_pdf_to_img_tab(self) -> QWidget:
+        SP  = QStyle.StandardPixmap
+        tab = QWidget()
+        tab.setObjectName("tabPage")
+        layout = QVBoxLayout(tab)
+        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(12)
+
+        desc = QLabel(
+            "Export PDF pages as image files (PNG, JPEG, or TIFF). "
+            "Leave pages blank to export all pages."
+        )
+        desc.setObjectName("descLabel")
+        desc.setWordWrap(True)
+        layout.addWidget(desc)
+
+        layout.addWidget(self._field_label("Select PDF:"))
+        in_row = QHBoxLayout(); in_row.setSpacing(8)
+        self._p2i_input = QLineEdit()
+        self._p2i_input.setObjectName("inputField")
+        self._p2i_input.setPlaceholderText("Select a PDF with Browse...")
+        self._p2i_input.setReadOnly(True)
+        in_row.addWidget(self._p2i_input)
+        b_in = self._secondary_btn("Browse...", SP.SP_DirOpenIcon)
+        b_in.setFixedWidth(120)
+        b_in.clicked.connect(self._browse_p2i_input)
+        in_row.addWidget(b_in)
+        layout.addLayout(in_row)
+
+        layout.addWidget(self._field_label("Output Folder:"))
+        out_row = QHBoxLayout(); out_row.setSpacing(8)
+        self._p2i_output = QLineEdit()
+        self._p2i_output.setObjectName("inputField")
+        self._p2i_output.setPlaceholderText("Choose destination folder...")
+        self._p2i_output.setReadOnly(True)
+        out_row.addWidget(self._p2i_output)
+        b_out = self._secondary_btn("Browse...", SP.SP_DirOpenIcon)
+        b_out.setFixedWidth(120)
+        b_out.clicked.connect(self._browse_p2i_output)
+        out_row.addWidget(b_out)
+        layout.addLayout(out_row)
+
+        # Options row: format + DPI + pages
+        opts = QHBoxLayout(); opts.setSpacing(20)
+
+        fmt_col = QVBoxLayout(); fmt_col.setSpacing(4)
+        fmt_col.addWidget(self._field_label("Format:"))
+        self._p2i_fmt = QComboBox()
+        self._p2i_fmt.setObjectName("comboBox")
+        for fmt in ("PNG", "JPEG", "TIFF"):
+            self._p2i_fmt.addItem(fmt)
+        fmt_col.addWidget(self._p2i_fmt)
+        opts.addLayout(fmt_col)
+
+        dpi_col = QVBoxLayout(); dpi_col.setSpacing(4)
+        dpi_col.addWidget(self._field_label("DPI:"))
+        self._p2i_dpi = QSpinBox()
+        self._p2i_dpi.setObjectName("spinBox")
+        self._p2i_dpi.setRange(72, 600)
+        self._p2i_dpi.setValue(150)
+        self._p2i_dpi.setFixedWidth(90)
+        dpi_col.addWidget(self._p2i_dpi)
+        opts.addLayout(dpi_col)
+
+        pg_col = QVBoxLayout(); pg_col.setSpacing(4)
+        pg_col.addWidget(self._field_label("Pages (blank = all):"))
+        self._p2i_pages = QLineEdit()
+        self._p2i_pages.setObjectName("inputField")
+        self._p2i_pages.setPlaceholderText("e.g.  1, 3, 5-7")
+        pg_col.addWidget(self._p2i_pages)
+        opts.addLayout(pg_col, 1)
+
+        layout.addLayout(opts)
+
+        self._p2i_progress = self._make_progress()
+        layout.addWidget(self._p2i_progress)
+        self._p2i_status = QLabel("")
+        self._p2i_status.setObjectName("statusLabel")
+        layout.addWidget(self._p2i_status)
+
+        layout.addStretch()
+
+        self._p2i_btn = self._primary_btn("Export Images")
+        self._p2i_btn.setFixedHeight(52)
+        self._p2i_btn.clicked.connect(self._do_p2i)
+        layout.addWidget(self._p2i_btn)
+
+        return tab
+
+    def _browse_p2i_input(self):
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Select PDF", "", "PDF Files (*.pdf)"
+        )
+        if path:
+            self._p2i_input_path = path
+            self._p2i_input.setText(os.path.basename(path))
+            self._p2i_input.setToolTip(path)
+            if not self._p2i_output_dir:
+                default_dir = os.path.join(
+                    os.path.dirname(path),
+                    os.path.splitext(os.path.basename(path))[0] + "_images",
+                )
+                self._p2i_output_dir = default_dir
+                self._p2i_output.setText(os.path.basename(default_dir))
+                self._p2i_output.setToolTip(default_dir)
+
+    def _browse_p2i_output(self):
+        d = QFileDialog.getExistingDirectory(self, "Select Output Folder")
+        if d:
+            self._p2i_output_dir = d
+            self._p2i_output.setText(os.path.basename(d))
+            self._p2i_output.setToolTip(d)
+
+    def _do_p2i(self):
+        def err(msg):
+            self._p2i_status.setStyleSheet(f"color: {self.theme.get_color('error')};")
+            self._p2i_status.setText(msg)
+
+        if not self._p2i_input_path or not os.path.isfile(self._p2i_input_path):
+            return err("Please select a valid PDF file.")
+        if not self._p2i_output_dir:
+            return err("Please select an output folder.")
+        if not self._check_output_folder(self._p2i_output_dir):
+            return
+
+        self._p2i_btn.setEnabled(False)
+        self._p2i_progress.setValue(0)
+        self._p2i_status.setStyleSheet("")
+        self._p2i_status.setText("Exporting images...")
+
+        self._p2i_worker = _PdfToImagesWorker(
+            self.pdf_to_images,
+            self._p2i_input_path,
+            self._p2i_output_dir,
+            self._p2i_fmt.currentText(),
+            self._p2i_dpi.value(),
+            self._p2i_pages.text().strip(),
+        )
+        self._p2i_worker.progress_changed.connect(self._p2i_progress.setValue)
+        self._p2i_worker.convert_done.connect(
+            lambda ok, msg: self._p2i_done(ok, msg)
+        )
+        self._p2i_worker.finished.connect(self._p2i_worker.deleteLater)
+        self._p2i_worker.start()
+
+    def _p2i_done(self, success: bool, message: str):
+        self._p2i_btn.setEnabled(True)
+        self._p2i_progress.setValue(100 if success else 0)
+        if success:
+            self._p2i_status.setStyleSheet(f"color: {self.theme.get_color('success')};")
+            self._p2i_status.setText(message)
+            self.history.add_pdf_to_images(self._p2i_output_dir, 0)
+            QMessageBox.information(self, "Export Complete", message)
+            self._ask_reveal_folder(self._p2i_output_dir)
+        else:
+            self._p2i_status.setStyleSheet(f"color: {self.theme.get_color('error')};")
+            self._p2i_status.setText("Export failed.")
+            QMessageBox.critical(self, "Error", message)
+
+    # -- Image to PDF tab ──────────────────────────────────────────────────────
+
+    def _build_img_to_pdf_tab(self) -> QWidget:
+        SP  = QStyle.StandardPixmap
+        tab = QWidget()
+        tab.setObjectName("tabPage")
+        outer = QHBoxLayout(tab)
+        outer.setContentsMargins(16, 16, 16, 16)
+        outer.setSpacing(16)
+
+        # Left: file list + controls
+        left = QVBoxLayout()
+        left.setSpacing(8)
+        outer.addLayout(left, 1)
+
+        desc = QLabel(
+            "Combine images (PNG, JPEG, TIFF, BMP, GIF) into a single PDF. "
+            "Use the Up / Down buttons to set the page order."
+        )
+        desc.setObjectName("descLabel")
+        desc.setWordWrap(True)
+        left.addWidget(desc)
+
+        left.addWidget(self._field_label("Images:"))
+        btn_row = QHBoxLayout(); btn_row.setSpacing(6)
+        for label, slot, icon_sp in [
+            ("Add Images...",  self._add_i2p_images,  SP.SP_FileIcon),
+            ("Add Folder",     self._add_i2p_folder,  SP.SP_DirOpenIcon),
+            ("Remove",         self._remove_i2p,      SP.SP_DialogDiscardButton),
+            ("Clear All",      self._clear_i2p_images, SP.SP_DialogResetButton),
+        ]:
+            b = self._secondary_btn(label, icon_sp)
+            b.clicked.connect(slot)
+            btn_row.addWidget(b)
+        btn_row.addStretch()
+        left.addLayout(btn_row)
+
+        # List + move buttons side by side
+        list_row = QHBoxLayout(); list_row.setSpacing(6)
+        self._i2p_list = QTreeWidget()
+        self._i2p_list.setObjectName("historyList")
+        self._i2p_list.setColumnCount(2)
+        self._i2p_list.setHeaderLabels(["Image File", "Folder"])
+        self._i2p_list.header().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        self._i2p_list.header().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        self._i2p_list.setRootIsDecorated(False)
+        self._i2p_list.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        list_row.addWidget(self._i2p_list, 1)
+
+        move_col = QVBoxLayout(); move_col.setSpacing(4)
+        self._i2p_up_btn   = self._secondary_btn("Up",   SP.SP_ArrowUp)
+        self._i2p_down_btn = self._secondary_btn("Down", SP.SP_ArrowDown)
+        self._i2p_up_btn.setFixedWidth(68)
+        self._i2p_down_btn.setFixedWidth(68)
+        self._i2p_up_btn.clicked.connect(self._move_i2p_up)
+        self._i2p_down_btn.clicked.connect(self._move_i2p_down)
+        move_col.addStretch()
+        move_col.addWidget(self._i2p_up_btn)
+        move_col.addWidget(self._i2p_down_btn)
+        move_col.addStretch()
+        list_row.addLayout(move_col)
+        left.addLayout(list_row)
+
+        count_lbl = QLabel("0 image(s)")
+        count_lbl.setObjectName("hintLabel")
+        self._i2p_count_lbl = count_lbl
+        left.addWidget(count_lbl)
+
+        left.addWidget(self._field_label("Save PDF As:"))
+        out_row = QHBoxLayout(); out_row.setSpacing(8)
+        self._i2p_output = QLineEdit()
+        self._i2p_output.setObjectName("inputField")
+        self._i2p_output.setPlaceholderText("Choose output file...")
+        self._i2p_output.setReadOnly(True)
+        out_row.addWidget(self._i2p_output)
+        b_out = self._secondary_btn("Browse...", SP.SP_DirOpenIcon)
+        b_out.setFixedWidth(120)
+        b_out.clicked.connect(self._browse_i2p_output)
+        out_row.addWidget(b_out)
+        left.addLayout(out_row)
+
+        self._i2p_progress = self._make_progress()
+        left.addWidget(self._i2p_progress)
+        self._i2p_status = QLabel("")
+        self._i2p_status.setObjectName("statusLabel")
+        left.addWidget(self._i2p_status)
+
+        left.addStretch()
+
+        self._i2p_btn = self._primary_btn("Convert to PDF")
+        self._i2p_btn.setFixedHeight(52)
+        self._i2p_btn.clicked.connect(self._do_i2p)
+        left.addWidget(self._i2p_btn)
+
+        return tab
+
+    # -- Image-to-PDF list helpers ─────────────────────────────────────────────
+
+    def _i2p_refresh_list(self) -> None:
+        self._i2p_list.clear()
+        for p in self._i2p_image_paths:
+            item = QTreeWidgetItem([
+                os.path.basename(p),
+                os.path.basename(os.path.dirname(p)),
+            ])
+            self._i2p_list.addTopLevelItem(item)
+        n = len(self._i2p_image_paths)
+        self._i2p_count_lbl.setText(f"{n} image(s)")
+
+    def _add_i2p_images(self):
+        paths, _ = QFileDialog.getOpenFileNames(
+            self, "Select Images", "",
+            "Images (*.png *.jpg *.jpeg *.tif *.tiff *.bmp *.gif)"
+        )
+        if paths:
+            self._i2p_image_paths.extend(paths)
+            self._i2p_refresh_list()
+
+    def _add_i2p_folder(self):
+        folder = QFileDialog.getExistingDirectory(self, "Select Folder Containing Images")
+        if not folder:
+            return
+        _EXTS = {".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp", ".gif"}
+        added = 0
+        for fname in sorted(os.listdir(folder)):
+            if os.path.splitext(fname)[1].lower() in _EXTS:
+                self._i2p_image_paths.append(os.path.join(folder, fname))
+                added += 1
+        if added:
+            self._i2p_refresh_list()
+        else:
+            QMessageBox.information(self, "No Images Found",
+                                    "No supported image files were found in that folder.")
+
+    def _remove_i2p(self):
+        row = self._i2p_list.currentIndex().row()
+        if 0 <= row < len(self._i2p_image_paths):
+            del self._i2p_image_paths[row]
+            self._i2p_refresh_list()
+
+    def _clear_i2p_images(self):
+        self._i2p_image_paths = []
+        self._i2p_list.clear()
+        self._i2p_count_lbl.setText("0 image(s)")
+
+    def _move_i2p_up(self):
+        row = self._i2p_list.currentIndex().row()
+        if row > 0:
+            self._i2p_image_paths[row - 1], self._i2p_image_paths[row] = (
+                self._i2p_image_paths[row], self._i2p_image_paths[row - 1]
+            )
+            self._i2p_refresh_list()
+            self._i2p_list.setCurrentItem(self._i2p_list.topLevelItem(row - 1))
+
+    def _move_i2p_down(self):
+        row = self._i2p_list.currentIndex().row()
+        if 0 <= row < len(self._i2p_image_paths) - 1:
+            self._i2p_image_paths[row], self._i2p_image_paths[row + 1] = (
+                self._i2p_image_paths[row + 1], self._i2p_image_paths[row]
+            )
+            self._i2p_refresh_list()
+            self._i2p_list.setCurrentItem(self._i2p_list.topLevelItem(row + 1))
+
+    def _browse_i2p_output(self):
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Save PDF As", "", "PDF Files (*.pdf)"
+        )
+        if path:
+            self._i2p_output_path = path
+            self._i2p_output.setText(os.path.basename(path))
+            self._i2p_output.setToolTip(path)
+
+    def _do_i2p(self):
+        def err(msg):
+            self._i2p_status.setStyleSheet(f"color: {self.theme.get_color('error')};")
+            self._i2p_status.setText(msg)
+
+        if not self._i2p_image_paths:
+            return err("Please add at least one image.")
+        if not self._i2p_output_path:
+            return err("Please set an output file path.")
+        if not self._check_output_dir(self._i2p_output_path):
+            return
+
+        self._i2p_btn.setEnabled(False)
+        self._i2p_progress.setValue(0)
+        self._i2p_status.setStyleSheet("")
+        self._i2p_status.setText("Converting...")
+
+        self._i2p_worker = _ImagesToPdfWorker(
+            self.images_to_pdf, list(self._i2p_image_paths), self._i2p_output_path
+        )
+        self._i2p_worker.progress_changed.connect(self._i2p_progress.setValue)
+        self._i2p_worker.convert_done.connect(
+            lambda ok, msg: self._i2p_done(ok, msg)
+        )
+        self._i2p_worker.finished.connect(self._i2p_worker.deleteLater)
+        self._i2p_worker.start()
+
+    def _i2p_done(self, success: bool, message: str):
+        self._i2p_btn.setEnabled(True)
+        self._i2p_progress.setValue(100 if success else 0)
+        if success:
+            self._i2p_status.setStyleSheet(f"color: {self.theme.get_color('success')};")
+            self._i2p_status.setText(message)
+            self.history.add_images_to_pdf(self._i2p_output_path, len(self._i2p_image_paths))
+            QMessageBox.information(self, "Conversion Complete", message)
+            self._ask_open_in_viewer(self._i2p_output_path)
+        else:
+            self._i2p_status.setStyleSheet(f"color: {self.theme.get_color('error')};")
+            self._i2p_status.setText("Conversion failed.")
             QMessageBox.critical(self, "Error", message)
 
     # -- History tab ───────────────────────────────────────────────────────────
@@ -668,7 +1601,32 @@ class PDFMergerApp(QMainWindow):
     # -- Help / FAQ tab ────────────────────────────────────────────────────────
 
     def _build_help_tab(self) -> QWidget:
-        return build_faq_widget(self)
+        outer   = QWidget()
+        outer.setObjectName("tabPage")
+        vlayout = QVBoxLayout(outer)
+        vlayout.setContentsMargins(0, 0, 0, 0)
+        vlayout.setSpacing(0)
+
+        # Transfer license button at the top of the Help tab
+        if self._license_mgr:
+            bar = QWidget()
+            bar.setObjectName("tabPage")
+            bar_row = QHBoxLayout(bar)
+            bar_row.setContentsMargins(16, 10, 16, 4)
+            bar_row.addStretch()
+            transfer_btn = QPushButton("Transfer License to New Device")
+            transfer_btn.setObjectName("secondaryBtn")
+            transfer_btn.clicked.connect(self._open_transfer_dialog)
+            bar_row.addWidget(transfer_btn)
+            vlayout.addWidget(bar)
+
+        vlayout.addWidget(build_faq_widget(self))
+        return outer
+
+    def _open_transfer_dialog(self):
+        from .transfer_dialog import TransferDialog
+        dlg = TransferDialog(self._license_mgr, parent=self)
+        dlg.exec()
 
         # -- Widget factories ──────────────────────────────────────────────────────
 
@@ -744,6 +1702,98 @@ class PDFMergerApp(QMainWindow):
 
     def _std_icon(self, sp) -> QIcon:
         return QApplication.style().standardIcon(sp)
+
+    # -- Post-operation helpers ────────────────────────────────────────────────
+
+    def _open_in_viewer(self, pdf_path: str) -> None:
+        """Load pdf_path into the built-in viewer and switch to it."""
+        self._viewer.load_pdf(pdf_path)
+        self.tabs.setCurrentIndex(3)   # View PDF is always tab 3
+
+    def _reveal_in_explorer(self, path: str) -> None:
+        """Highlight path in the OS file manager (non-blocking)."""
+        import platform as _plt
+        import subprocess
+        try:
+            if _plt.system() == "Darwin":
+                subprocess.Popen(["open", "-R", path])
+            elif _plt.system() == "Windows":
+                subprocess.Popen(["explorer", "/select,", path])
+            else:
+                subprocess.Popen(["xdg-open", os.path.dirname(path)])
+        except Exception:
+            pass
+
+    def _ask_open_in_viewer(self, pdf_path: str, title: str = "Open in Viewer?") -> None:
+        """Offer to open pdf_path in the built-in viewer."""
+        reply = QMessageBox.question(
+            self, title,
+            f"Open  {os.path.basename(pdf_path)}  in the built-in viewer?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
+        if reply == QMessageBox.StandardButton.Yes:
+            self._open_in_viewer(pdf_path)
+
+    def _ask_reveal_folder(self, folder_path: str) -> None:
+        """Offer to reveal the output folder in the OS file manager."""
+        reply = QMessageBox.question(
+            self, "Reveal Output Folder?",
+            "Open the output folder in your file manager?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
+        if reply == QMessageBox.StandardButton.Yes:
+            self._reveal_in_explorer(folder_path)
+
+    def _check_output_dir(self, path: str) -> bool:
+        """Return True if the directory for path exists and is writable.
+
+        Shows an error dialog and returns False otherwise.
+        Output-directory validation prevents cryptic OS errors deep inside
+        worker threads when the destination folder was deleted or is read-only.
+        """
+        out_dir = os.path.dirname(os.path.abspath(path)) if path else ""
+        if not out_dir:
+            QMessageBox.critical(self, "Invalid Output", "No output path specified.")
+            return False
+        if not os.path.isdir(out_dir):
+            QMessageBox.critical(
+                self, "Output Folder Not Found",
+                f"The destination folder does not exist:\n{out_dir}\n\n"
+                "Please choose a different output path.",
+            )
+            return False
+        if not os.access(out_dir, os.W_OK):
+            QMessageBox.critical(
+                self, "Output Folder Not Writable",
+                f"No write permission for:\n{out_dir}\n\n"
+                "Please choose a different output path.",
+            )
+            return False
+        return True
+
+    def _check_output_folder(self, folder: str) -> bool:
+        """Like _check_output_dir but for when the output IS a directory."""
+        if not folder:
+            QMessageBox.critical(self, "Invalid Output", "No output folder specified.")
+            return False
+        # The folder may not exist yet (will be created by the engine).
+        # Validate the parent instead.
+        parent = os.path.dirname(os.path.abspath(folder))
+        if not os.path.isdir(parent):
+            QMessageBox.critical(
+                self, "Output Folder Not Found",
+                f"The parent directory does not exist:\n{parent}\n\n"
+                "Please choose a different output folder.",
+            )
+            return False
+        if not os.access(parent, os.W_OK):
+            QMessageBox.critical(
+                self, "Output Folder Not Writable",
+                f"No write permission for:\n{parent}\n\n"
+                "Please choose a different output folder.",
+            )
+            return False
+        return True
 
     # -- Stylesheet / theme ────────────────────────────────────────────────────
 
@@ -916,6 +1966,9 @@ class PDFMergerApp(QMainWindow):
         if pwd != confirm:
             return err("Passwords do not match.")
 
+        if not self._check_output_dir(output_path):
+            return
+
         # Guard: warn before overwriting (allow same path — intentional in-place)
         if (os.path.realpath(output_path) != os.path.realpath(input_path)
                 and os.path.exists(output_path)):
@@ -941,6 +1994,7 @@ class PDFMergerApp(QMainWindow):
         self._protect_worker.protect_done.connect(
             lambda ok, msg: self._protect_done(ok, msg, output_path)
         )
+        self._protect_worker.finished.connect(self._protect_worker.deleteLater)
         self._protect_worker.start()
 
     def _protect_done(self, success: bool, message: str, output_path: str):
@@ -957,6 +2011,7 @@ class PDFMergerApp(QMainWindow):
             self._protect_pwd.clear()
             self._protect_confirm.clear()
             QMessageBox.information(self, "Success", message)
+            self._ask_open_in_viewer(output_path)
         else:
             self._protect_status.setStyleSheet(
                 f"color: {self.theme.get_color('error')};"
@@ -1453,6 +2508,9 @@ class PDFMergerApp(QMainWindow):
         if not output_path:
             return err("Please set an output file path.")
 
+        if not self._check_output_dir(output_path):
+            return
+
         if (os.path.realpath(output_path) != os.path.realpath(input_path)
                 and os.path.exists(output_path)):
             reply = QMessageBox.question(
@@ -1478,6 +2536,7 @@ class PDFMergerApp(QMainWindow):
         self._wm_worker.watermark_done.connect(
             lambda ok, msg: self._wm_done(ok, msg, output_path)
         )
+        self._wm_worker.finished.connect(self._wm_worker.deleteLater)
         self._wm_worker.start()
 
     def _wm_done(self, success: bool, message: str, output_path: str):
@@ -1490,6 +2549,7 @@ class PDFMergerApp(QMainWindow):
             self._wm_status.setText(f"Saved: {os.path.basename(output_path)}")
             self.history.add_watermark(output_path)
             QMessageBox.information(self, "Watermark Applied", message)
+            self._ask_open_in_viewer(output_path)
         else:
             self._wm_status.setStyleSheet(
                 f"color: {self.theme.get_color('error')};"
@@ -1500,7 +2560,7 @@ class PDFMergerApp(QMainWindow):
     # -- History callbacks ─────────────────────────────────────────────────────
 
     def _on_tab_change(self, index: int):
-        if index == 6:
+        if index == 11:
             self._refresh_history()
 
     def _refresh_history(self):
@@ -1565,6 +2625,9 @@ class PDFMergerApp(QMainWindow):
             if reply != QMessageBox.StandardButton.Yes:
                 return
 
+        if not self._check_output_dir(output):
+            return
+
         passwords = self._collect_input_passwords()
         if passwords is None:
             return
@@ -1577,6 +2640,7 @@ class PDFMergerApp(QMainWindow):
         self._merge_worker = _MergeWorker(self.merger, output, passwords)
         self._merge_worker.progress_changed.connect(self.progress_bar.setValue)
         self._merge_worker.merge_done.connect(self._merge_done)
+        self._merge_worker.finished.connect(self._merge_worker.deleteLater)
         self._merge_worker.start()
 
     def _collect_input_passwords(self):
@@ -1621,6 +2685,7 @@ class PDFMergerApp(QMainWindow):
                 self._protect_worker.start()
             else:
                 self.history.add_merge(self._output_path, self._source_count, False)
+                self._ask_open_in_viewer(self._output_path)
         else:
             self._set_status("Merge failed.", error=True)
             QMessageBox.critical(self, "Error", message)
@@ -1632,6 +2697,7 @@ class PDFMergerApp(QMainWindow):
             self._set_status("Done! Password applied to merged PDF.")
             QMessageBox.information(self, "Protected", "Password applied to the merged PDF.")
             self.history.add_merge(self._output_path, self._source_count, True)
+            self._ask_open_in_viewer(self._output_path)
         else:
             self.progress_bar.setValue(0)
             self._set_status("Password failed.", error=True)
@@ -1707,7 +2773,25 @@ def main():
     # Without it, macOS's native style engine partially overrides backgrounds,
     # breaking dark mode and tonal layering.
     app.setStyle("Fusion")
-    window = PDFMergerApp()
+
+    # ── License gate ──────────────────────────────────────────────────────────
+    # Must be checked before the main window is shown.
+    # If no valid license is found, show the activation dialog.
+    # The dialog is modal and cannot be dismissed — app quits if user cancels.
+    from .license import LicenseManager
+    from .activation_dialog import ActivationDialog
+
+    license_mgr = LicenseManager()
+    if not license_mgr.is_activated():
+        dlg = ActivationDialog(license_mgr)
+        dlg.show()
+        dlg.raise_()
+        dlg.activateWindow()
+        if dlg.exec() != QDialog.DialogCode.Accepted:
+            sys.exit(0)
+    # ─────────────────────────────────────────────────────────────────────────
+
+    window = PDFMergerApp(license_mgr=license_mgr)
     window.show()
     sys.exit(app.exec())
 
