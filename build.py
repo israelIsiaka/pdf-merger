@@ -113,6 +113,8 @@ def build_windows_nuitka() -> bool:
         "--windows-product-name=PDF Merger",
         "--windows-file-description=PDF Merger",
         "--windows-company-name=PDF Merger",
+        "--windows-file-version=1.0.0.0",
+        "--windows-product-version=1.0.0.0",
     ]
     if os.path.exists(ico_path):
         cmd.append(f"--windows-icon-from-ico={ico_path}")
@@ -162,7 +164,7 @@ def build_macos_nuitka() -> bool:
         "--standalone",
         "--macos-create-app-bundle",
         "--macos-app-name=PDF Merger",
-        "--macos-app-mode=windowed",
+        "--macos-app-mode=gui",
     ]
     if os.path.exists(icns_path):
         cmd.append(f"--macos-app-icon={icns_path}")
