@@ -692,8 +692,8 @@ async def generate_keys(
     keys = []
     with _db() as conn:
         for _ in range(req.count):
-            raw = secrets.token_hex(8).upper()
-            key = f"{raw[0:4]}-{raw[4:8]}-{raw[8:12]}-{raw[12:16]}"
+            raw = secrets.token_hex(12).upper()
+            key = f"{raw[0:4]}-{raw[4:8]}-{raw[8:12]}-{raw[12:16]}-{raw[16:20]}-{raw[20:24]}"
             conn.execute(
                 "INSERT OR IGNORE INTO licenses "
                 "(key_hash, email, created_at, max_activations) VALUES (?,?,?,?)",
@@ -817,9 +817,6 @@ async def set_transfer_limit(
 ):
     """Set the maximum number of approved device transfers for a license."""
     _require_admin(x_admin_secret)
-    if body.max_transfers < 0:
-        raise HTTPException(400, "max_transfers must be >= 0.")
-
     with _db() as conn:
         result = conn.execute(
             "UPDATE licenses SET max_transfers=? WHERE key_hash=?",
