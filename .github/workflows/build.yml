@@ -43,12 +43,12 @@ jobs:
           python-version: "3.11"
 
       - name: Install Python dependencies
-        run: pip install -r requirements.txt nuitka ordered-set zstandard
+        run: pip install -r requirements.txt pyinstaller
 
       - name: Convert PNG icon to ICNS
         run: python convert_icon.py
 
-      - name: Build DMG (Nuitka)
+      - name: Build DMG (PyInstaller)
         run: python build.py macos
 
       - name: Upload DMG artifact
