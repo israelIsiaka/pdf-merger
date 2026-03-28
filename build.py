@@ -109,7 +109,7 @@ def build_windows_nuitka() -> bool:
 
     cmd = _nuitka_base_cmd(out_dir, onefile=True)
     cmd += [
-        "--windows-disable-console",
+        "--windows-console-mode=disable",
         "--windows-product-name=PDF Merger",
         "--windows-file-description=PDF Merger",
         "--windows-company-name=PDF Merger",
@@ -124,7 +124,7 @@ def build_windows_nuitka() -> bool:
     # Bundle logo files so _load_icon() finds them at runtime
     for asset in (ico_path, png_path):
         if os.path.exists(asset):
-            cmd.append(f"--include-data-files={asset}=.")
+            cmd.append(f"--include-data-files={asset}={os.path.basename(asset)}")
 
     cmd.append("merge_pdfs.py")
 
@@ -152,62 +152,14 @@ def build_windows_nuitka() -> bool:
 
 
 def build_macos_nuitka() -> bool:
-    """Build a macOS app bundle using Nuitka, then package as DMG."""
-    print("Building PDF Merger macOS App (Nuitka — native binary)...")
+    """Build a macOS DMG using PyInstaller.
 
-    out_dir   = os.path.join(DIST_DIR, "macos-nuitka")
-    icns_path = os.path.join(PROJECT_DIR, "Logo.icns")
-    png_path  = os.path.join(PROJECT_DIR, "Logo.png")
-
-    cmd = _nuitka_base_cmd(out_dir, onefile=False)   # onedir for .app bundle
-    cmd += [
-        "--standalone",
-        "--macos-create-app-bundle",
-        "--macos-app-name=PDF Merger",
-        "--macos-app-mode=gui",
-    ]
-    if os.path.exists(icns_path):
-        cmd.append(f"--macos-app-icon={icns_path}")
-    elif os.path.exists(png_path):
-        cmd.append(f"--macos-app-icon={png_path}")
-
-    for asset in (icns_path, png_path):
-        if os.path.exists(asset):
-            cmd.append(f"--include-data-files={asset}=.")
-
-    cmd.append("merge_pdfs.py")
-
-    if not _run(cmd):
-        print("FAILED — Nuitka build error (see output above)")
-        return False
-
-    # Nuitka creates merge_pdfs.app; rename to PDF Merger.app
-    app_src  = os.path.join(out_dir, "merge_pdfs.app")
-    app_dst  = os.path.join(out_dir, "PDF Merger.app")
-    if os.path.exists(app_src) and not os.path.exists(app_dst):
-        os.rename(app_src, app_dst)
-
-    app_path = app_dst if os.path.exists(app_dst) else app_src
-    dmg_path = os.path.join(DIST_DIR, "PDF-Merger.dmg")
-    os.makedirs(DIST_DIR, exist_ok=True)
-
-    print("Creating DMG...")
-    dmg_ok = _run([
-        "hdiutil", "create",
-        "-volname", "PDF Merger",
-        "-srcfolder", app_path,
-        "-ov", "-format", "UDZO",
-        dmg_path,
-    ])
-    if not dmg_ok:
-        print("FAILED to create DMG")
-        return False
-
-    _print_success("macOS / Nuitka", dmg_path, [
-        "Drag PDF Merger.app to /Applications",
-        "Contains no .pyc files — compiled to native C",
-    ])
-    return True
+    Nuitka explicitly blocks PyQt6 on macOS (as of Nuitka 2.x) and recommends
+    PySide6 instead.  Since the entire codebase targets PyQt6 we use
+    PyInstaller for macOS — it produces a fully standalone .app bundle.
+    """
+    print("Building PDF Merger macOS App (PyInstaller — PyQt6/macOS)...")
+    return build_macos_dmg()
 
 
 def build_linux_nuitka() -> bool:
@@ -220,7 +172,7 @@ def build_linux_nuitka() -> bool:
     cmd = _nuitka_base_cmd(out_dir, onefile=True)
     if os.path.exists(png_path):
         cmd.append(f"--linux-icon={png_path}")
-        cmd.append(f"--include-data-files={png_path}=.")
+        cmd.append(f"--include-data-files={png_path}={os.path.basename(png_path)}")
 
     cmd.append("merge_pdfs.py")
 
