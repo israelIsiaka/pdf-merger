@@ -52,6 +52,17 @@ jobs:
       - name: Build DMG (PyInstaller)
         run: python build.py macos
 
+      - name: Ad-hoc code sign app bundle
+        # Prevents "app is damaged" errors on macOS.
+        # Users still need to right-click → Open on first launch
+        # unless the app is notarized with a paid Apple Developer certificate.
+        run: |
+          APP="dist/macos/PDF Merger.app"
+          if [ -d "$APP" ]; then
+            codesign --force --deep --sign - "$APP"
+            echo "Ad-hoc signed: $APP"
+          fi
+
       - name: Upload DMG artifact
         uses: actions/upload-artifact@v4
         with:
