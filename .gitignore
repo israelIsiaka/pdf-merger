@@ -37,6 +37,7 @@ server/.env.local
 .vscode/
 .idea/
 .Claude
+.claude/
 *.swp
 *.swo
 *~
