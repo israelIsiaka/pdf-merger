@@ -314,17 +314,37 @@ def build_macos_dmg() -> bool:
         print("FAILED to build app bundle")
         return False
 
-    app_path = os.path.join(DIST_DIR, "macos", "PDF Merger.app")
-    dmg_path = os.path.join(DIST_DIR, "PDF-Merger.dmg")
+    app_path    = os.path.join(DIST_DIR, "macos", "PDF Merger.app")
+    dmg_path    = os.path.join(DIST_DIR, "PDF-Merger.dmg")
+    staging_dir = os.path.join(DIST_DIR, "dmg-staging")
 
-    print("Creating DMG...")
-    if not _run(["hdiutil", "create", "-volname", "PDF Merger",
-                 "-srcfolder", app_path, "-ov", "-format", "UDZO", dmg_path]):
-        print("FAILED to create DMG")
-        return False
+    # Ad-hoc code sign — prevents "damaged app" error on first launch
+    if not _run(["codesign", "--force", "--deep", "--sign", "-", app_path]):
+        print("WARNING: Code signing failed — app may trigger Gatekeeper warnings")
+
+    # Build installer DMG: staging dir holds .app + /Applications symlink
+    # so users see the standard drag-to-install experience.
+    print("Creating installer DMG...")
+    shutil.rmtree(staging_dir, ignore_errors=True)
+    os.makedirs(staging_dir)
+    shutil.copytree(app_path, os.path.join(staging_dir, "PDF Merger.app"))
+    os.symlink("/Applications", os.path.join(staging_dir, "Applications"))
+
+    try:
+        if not _run([
+            "hdiutil", "create",
+            "-volname", "PDF Merger",
+            "-srcfolder", staging_dir,
+            "-ov", "-format", "UDZO",
+            dmg_path,
+        ]):
+            print("FAILED to create DMG")
+            return False
+    finally:
+        shutil.rmtree(staging_dir, ignore_errors=True)
 
     _print_success("macOS / PyInstaller", dmg_path, [
-        "WARNING: .pyc files present — reversible with pyinstxtractor",
+        "Drag PDF Merger.app to Applications to install",
     ])
     return True
 
