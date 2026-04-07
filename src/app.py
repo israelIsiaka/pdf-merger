@@ -233,6 +233,7 @@ class PDFMergerApp(QMainWindow):
         self.tabs.addTab(self._build_img_to_pdf_tab(),   "  Image to PDF  ")
         self.tabs.addTab(self._build_history_tab(),      "  History  ")
         self.tabs.addTab(self._build_help_tab(),         "  Help / FAQ  ")
+        self.tabs.addTab(self._build_sign_tab(),         "  Sign / Annotate  ")
 
         self.tabs.setUsesScrollButtons(True)
         self.tabs.currentChanged.connect(self._on_tab_change)
@@ -554,6 +555,53 @@ class PDFMergerApp(QMainWindow):
             )
             if reply == QMessageBox.StandardButton.Yes:
                 self._viewer.load_pdf(dlg.output_path)
+
+    # -- Sign / Annotate PDF tab ───────────────────────────────────────────────
+
+    def _build_sign_tab(self) -> QWidget:
+        tab = QWidget()
+        tab.setObjectName("tabPage")
+        layout = QVBoxLayout(tab)
+        layout.setContentsMargins(28, 24, 28, 24)
+        layout.setSpacing(10)
+
+        desc = QLabel("Add signatures, stamps, text and drawings to any PDF.")
+        desc.setObjectName("descLabel")
+        layout.addWidget(desc)
+        layout.addSpacing(8)
+
+        layout.addWidget(self._field_label("Select PDF:"))
+        row = QHBoxLayout()
+        self._sign_input = QLineEdit()
+        self._sign_input.setObjectName("inputField")
+        self._sign_input.setPlaceholderText("Choose a PDF to annotate or sign…")
+        self._sign_input.setReadOnly(True)
+        btn_browse = QPushButton()
+        btn_browse.setObjectName("secondaryBtn")
+        btn_browse.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_DirOpenIcon))
+        btn_browse.setToolTip("Browse")
+        btn_browse.clicked.connect(self._sign_browse)
+        row.addWidget(self._sign_input)
+        row.addWidget(btn_browse)
+        layout.addLayout(row)
+        layout.addSpacing(16)
+
+        self._sign_btn = QPushButton("Open Annotation Editor")
+        self._sign_btn.setObjectName("primaryBtn")
+        self._sign_btn.setEnabled(False)
+        self._sign_btn.clicked.connect(self._sign_open)
+        layout.addWidget(self._sign_btn)
+        layout.addStretch()
+        return tab
+
+    def _sign_browse(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(self, "Select PDF", "", "PDF Files (*.pdf)")
+        if path:
+            self._sign_input.setText(path)
+            self._sign_btn.setEnabled(True)
+
+    def _sign_open(self) -> None:
+        self._open_annotate_dialog(self._sign_input.text())
 
     # -- Compress PDF tab ──────────────────────────────────────────────────────
 

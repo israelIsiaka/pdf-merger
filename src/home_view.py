@@ -31,6 +31,7 @@ TOOLS = [
     ("Images to PDF", "Combine images into\na single PDF document",       "I",  "#ec4899", 10),
     ("History",       "View and re-open\nrecently processed files",       "H",  "#64748b", 11),
     ("Help / FAQ",    "Tips, shortcuts and\nfrequently asked questions",  "~",  "#475569", 12),
+    ("Sign / Annotate", "Add signatures, stamps\nand drawings to PDFs",  "S",  "#f97316", 13),
 ]
 
 _BG_COLOR = "#080c18"   # constellation base — also used as solid fallback
