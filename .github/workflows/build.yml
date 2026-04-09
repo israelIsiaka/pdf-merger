@@ -57,6 +57,7 @@ jobs:
         with:
           name: PDF-Merger-macOS
           path: dist/PDF-Merger.dmg
+          retention-days: 5
 
   # ── Linux → produces PDF-Merger-Linux.tar.gz  (Nuitka) ───────────────────
   build-linux:
@@ -93,6 +94,7 @@ jobs:
         with:
           name: PDF-Merger-Linux
           path: dist/PDF-Merger-Linux.tar.gz
+          retention-days: 5
 
   # ── Windows → produces PDF Merger.exe  (PyInstaller) ─────────────────────
   # Nuitka exhausts heap space compiling pymupdf on GitHub Actions runners.
@@ -129,3 +131,4 @@ jobs:
         with:
           name: PDF-Merger-Windows
           path: "dist/windows/PDF Merger"
+          retention-days: 5
