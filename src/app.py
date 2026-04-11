@@ -48,9 +48,9 @@ from .workers import (_MergeWorker, _ProtectWorker, _PeepWorker,
 class PDFMergerApp(QMainWindow):
     """Main application window for PDF Merger."""
 
-    def __init__(self, license_mgr=None):
+    def __init__(self):
         super().__init__()
-        self._license_mgr      = license_mgr
+
         self.theme             = ThemeManager()
         self.merger            = PDFMerger()
         self.history           = HistoryManager()
@@ -1655,28 +1655,10 @@ class PDFMergerApp(QMainWindow):
         vlayout.setContentsMargins(0, 0, 0, 0)
         vlayout.setSpacing(0)
 
-        # Transfer license button at the top of the Help tab
-        if self._license_mgr:
-            bar = QWidget()
-            bar.setObjectName("tabPage")
-            bar_row = QHBoxLayout(bar)
-            bar_row.setContentsMargins(16, 10, 16, 4)
-            bar_row.addStretch()
-            transfer_btn = QPushButton("Transfer License to New Device")
-            transfer_btn.setObjectName("secondaryBtn")
-            transfer_btn.clicked.connect(self._open_transfer_dialog)
-            bar_row.addWidget(transfer_btn)
-            vlayout.addWidget(bar)
-
         vlayout.addWidget(build_faq_widget(self))
         return outer
 
-    def _open_transfer_dialog(self):
-        from .transfer_dialog import TransferDialog
-        dlg = TransferDialog(self._license_mgr, parent=self)
-        dlg.exec()
-
-        # -- Widget factories ──────────────────────────────────────────────────────
+    # -- Widget factories ──────────────────────────────────────────────────────
 
     def _make_progress(self) -> QProgressBar:
         bar = QProgressBar()
@@ -2822,24 +2804,7 @@ def main():
     # breaking dark mode and tonal layering.
     app.setStyle("Fusion")
 
-    # ── License gate ──────────────────────────────────────────────────────────
-    # Must be checked before the main window is shown.
-    # If no valid license is found, show the activation dialog.
-    # The dialog is modal and cannot be dismissed — app quits if user cancels.
-    from .license import LicenseManager
-    from .activation_dialog import ActivationDialog
-
-    license_mgr = LicenseManager()
-    if not license_mgr.is_activated():
-        dlg = ActivationDialog(license_mgr)
-        dlg.show()
-        dlg.raise_()
-        dlg.activateWindow()
-        if dlg.exec() != QDialog.DialogCode.Accepted:
-            sys.exit(0)
-    # ─────────────────────────────────────────────────────────────────────────
-
-    window = PDFMergerApp(license_mgr=license_mgr)
+    window = PDFMergerApp()
     window.show()
     sys.exit(app.exec())
 
