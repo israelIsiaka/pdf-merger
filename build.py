@@ -201,7 +201,7 @@ def build_linux_nuitka() -> bool:
 # ── PyInstaller builds (fallback) ─────────────────────────────────────────────
 
 _PYINSTALLER_COMMON = [
-    "--onedir", "--windowed", "--noconfirm",
+    "--windowed", "--noconfirm",
     "--strip", "--log-level", "WARN",
     "--hidden-import=PyQt6",
     "--hidden-import=PyQt6.QtWidgets",
@@ -219,16 +219,22 @@ _PYINSTALLER_COMMON = [
 
 
 def build_windows_exe() -> bool:
-    """Build Windows EXE using PyInstaller (fallback — contains .pyc files)."""
-    print("Building PDF Merger Windows Application (PyInstaller)...")
-    print("NOTE: Use Nuitka build for maximum protection against reverse engineering.")
+    """Build a single-file Windows EXE using PyInstaller.
+
+    Uses --onefile so the user gets one .exe to download and run directly.
+    This avoids the _internal/python3xx.dll 'Access denied' error that
+    occurs with --onedir builds when Windows memory integrity is enabled.
+    """
+    print("Building PDF Merger Windows EXE (PyInstaller — single file)...")
 
     ico_path = os.path.join(PROJECT_DIR, "Logo.ico")
     png_path = os.path.join(PROJECT_DIR, "Logo.png")
     src_data = f"{os.path.join(PROJECT_DIR, 'src')}{os.pathsep}src"
 
     cmd = [sys.executable, "-m", "PyInstaller",
-           "--name", "PDF Merger"] + _PYINSTALLER_COMMON + [
+           "--name", "PDF Merger",
+           "--onefile",               # single .exe — no _internal folder
+           ] + _PYINSTALLER_COMMON + [
         "--add-data", src_data,
         f"--distpath={os.path.join(DIST_DIR, 'windows')}",
         f"--workpath={os.path.join(BUILD_DIR, 'windows')}",
@@ -248,10 +254,9 @@ def build_windows_exe() -> bool:
         print("FAILED to create EXE")
         return False
 
-    out = os.path.join(DIST_DIR, "windows", "PDF Merger")
+    out = os.path.join(DIST_DIR, "windows", "PDF Merger.exe")
     _print_success("Windows / PyInstaller", out, [
-        "Share the 'PDF Merger' folder or ZIP it",
-        "WARNING: .pyc files present — reversible with pyinstxtractor",
+        "Single .exe — users download and double-click, no install needed",
     ])
     return True
 
@@ -291,7 +296,9 @@ def build_macos_dmg() -> bool:
     src_data  = f"{os.path.join(PROJECT_DIR, 'src')}{os.pathsep}src"
 
     cmd = [sys.executable, "-m", "PyInstaller",
-           "--name", "PDF Merger"] + _PYINSTALLER_COMMON + [
+           "--name", "PDF Merger",
+           "--onedir",               # .app bundle requires onedir
+           ] + _PYINSTALLER_COMMON + [
         "--add-data", src_data,
         "--add-data", f"{png_path}{os.pathsep}.",
         f"--distpath={os.path.join(DIST_DIR, 'macos')}",
@@ -352,7 +359,9 @@ def build_linux() -> bool:
     src_data = f"{os.path.join(PROJECT_DIR, 'src')}{os.pathsep}src"
 
     cmd = [sys.executable, "-m", "PyInstaller",
-           "--name", "PDF Merger"] + _PYINSTALLER_COMMON + [
+           "--name", "PDF Merger",
+           "--onedir",               # folder bundle for Linux
+           ] + _PYINSTALLER_COMMON + [
         "--add-data", src_data,
         f"--distpath={os.path.join(DIST_DIR, 'linux')}",
         f"--workpath={os.path.join(BUILD_DIR, 'linux')}",
