@@ -43,6 +43,40 @@ from .workers import (_MergeWorker, _ProtectWorker, _PeepWorker,
                       _PdfToImagesWorker, _ImagesToPdfWorker)
 
 
+# -- App icon helper ───────────────────────────────────────────────────────────
+
+def _app_icon() -> QIcon:
+    """
+    Locate Logo.png / Logo.icns / Logo.ico and return a QIcon.
+    Searches all runtime layouts:
+      - PyInstaller --onefile : sys._MEIPASS (temp extraction dir)
+      - PyInstaller --onedir  : next to the executable
+      - Nuitka --onefile      : next to the executable (sys.argv[0] dir)
+      - Source run            : repo root (two levels up from this file)
+    """
+    candidates: list[Path] = []
+
+    # PyInstaller onefile extraction dir
+    if hasattr(sys, "_MEIPASS"):
+        candidates.append(Path(sys._MEIPASS))
+
+    # Next to the running executable (covers Nuitka + PyInstaller onedir)
+    candidates.append(Path(sys.executable).parent)
+    candidates.append(Path(sys.argv[0]).resolve().parent)
+
+    # Source layout: repo root is two levels above this file (src/app.py)
+    candidates.append(Path(__file__).parent.parent)
+
+    for base in candidates:
+        for name in ("Logo.png", "Logo.icns", "Logo.ico"):
+            p = base / name
+            if p.exists():
+                icon = QIcon(str(p))
+                if not icon.isNull():
+                    return icon
+    return QIcon()
+
+
 # -- Main application window ───────────────────────────────────────────────────
 
 class PDFMergerApp(QMainWindow):
@@ -130,17 +164,9 @@ class PDFMergerApp(QMainWindow):
     # -- Icon helpers ──────────────────────────────────────────────────────────
 
     def _load_icon(self):
-        if hasattr(sys, "_MEIPASS"):
-            base = Path(sys._MEIPASS)
-        else:
-            base = Path(__file__).parent.parent
-        for name in ("Logo.icns", "Logo.png", "Logo.ico"):
-            candidate = base / name
-            if candidate.exists():
-                icon = QIcon(str(candidate))
-                self.setWindowIcon(icon)
-                QApplication.setWindowIcon(icon)
-                return
+        icon = _app_icon()
+        if icon and not icon.isNull():
+            self.setWindowIcon(icon)
 
     def _make_pdf_icon(self) -> QIcon:
         px = QPixmap(22, 26)
@@ -2803,6 +2829,13 @@ def main():
     # Without it, macOS's native style engine partially overrides backgrounds,
     # breaking dark mode and tonal layering.
     app.setStyle("Fusion")
+
+    # Set app icon on QApplication immediately so every window and dialog —
+    # including the taskbar/dock entry, file dialogs, and message boxes —
+    # shows the PDF Merger logo instead of the Python default icon.
+    icon = _app_icon()
+    if not icon.isNull():
+        app.setWindowIcon(icon)
 
     window = PDFMergerApp()
     window.show()
