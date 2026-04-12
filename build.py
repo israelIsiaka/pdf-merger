@@ -192,8 +192,8 @@ def build_linux_nuitka() -> bool:
         os.rename(binary, final)
 
     _print_success("Linux / Nuitka", final, [
-        "Single binary — no Python installed on target needed",
-        "Contains no .pyc files — compiled to native C",
+        "Single binary — chmod +x pdf-merger then run it directly",
+        "No Python required on target machine",
     ])
     return True
 
@@ -351,16 +351,15 @@ def build_macos_dmg() -> bool:
 
 
 def build_linux() -> bool:
-    """Build Linux binary using PyInstaller (fallback — contains .pyc files)."""
-    print("Building PDF Merger Linux Application (PyInstaller)...")
-    print("NOTE: Use Nuitka build for maximum protection against reverse engineering.")
+    """Build a single-file Linux binary using PyInstaller."""
+    print("Building PDF Merger Linux binary (PyInstaller — single file)...")
 
     png_path = os.path.join(PROJECT_DIR, "Logo.png")
     src_data = f"{os.path.join(PROJECT_DIR, 'src')}{os.pathsep}src"
 
     cmd = [sys.executable, "-m", "PyInstaller",
-           "--name", "PDF Merger",
-           "--onedir",               # folder bundle for Linux
+           "--name", "pdf-merger",
+           "--onefile",              # single binary — no folder needed
            ] + _PYINSTALLER_COMMON + [
         "--add-data", src_data,
         f"--distpath={os.path.join(DIST_DIR, 'linux')}",
@@ -376,10 +375,13 @@ def build_linux() -> bool:
         print("FAILED to create Linux build")
         return False
 
-    out = os.path.join(DIST_DIR, "linux", "PDF Merger")
-    _print_success("Linux / PyInstaller", out, [
-        "Share the 'PDF Merger' folder or TAR it",
-        "WARNING: .pyc files present — reversible with pyinstxtractor",
+    binary = os.path.join(DIST_DIR, "linux", "pdf-merger")
+    # Ensure executable bit is set
+    if os.path.exists(binary):
+        os.chmod(binary, 0o755)
+
+    _print_success("Linux / PyInstaller", binary, [
+        "Single binary — chmod +x pdf-merger then run it directly",
     ])
     return True
 

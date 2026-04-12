@@ -33,7 +33,8 @@ jobs:
         run: pip-audit -r requirements.txt
 
   # ── macOS → produces PDF-Merger.dmg  (PyInstaller) ───────────────────────
-  # Nuitka blocks PyQt6 on macOS; PyInstaller produces a fully standalone DMG.
+  # Single DMG file — user opens it and drags PDF Merger.app to Applications.
+  # Ad-hoc codesign prevents the "damaged app" Gatekeeper error.
   build-macos:
     runs-on: macos-latest
     steps:
@@ -59,7 +60,9 @@ jobs:
           path: dist/PDF-Merger.dmg
           retention-days: 5
 
-  # ── Linux → produces PDF-Merger-Linux.tar.gz  (Nuitka) ───────────────────
+  # ── Linux → produces single pdf-merger binary  (Nuitka) ──────────────────
+  # Single self-contained binary — no tar, no install required.
+  # chmod +x then run directly.
   build-linux:
     runs-on: ubuntu-latest
     steps:
@@ -86,19 +89,20 @@ jobs:
       - name: Build Linux binary (Nuitka)
         run: python build.py linux
 
-      - name: Package as tarball
-        run: tar -czf dist/PDF-Merger-Linux.tar.gz -C dist/linux-nuitka pdf-merger
+      - name: Mark binary executable
+        run: chmod +x dist/linux-nuitka/pdf-merger
 
       - name: Upload Linux artifact
         uses: actions/upload-artifact@v4
         with:
           name: PDF-Merger-Linux
-          path: dist/PDF-Merger-Linux.tar.gz
+          path: dist/linux-nuitka/pdf-merger
           retention-days: 5
 
-  # ── Windows → produces PDF Merger.exe  (PyInstaller) ─────────────────────
-  # Nuitka exhausts heap space compiling pymupdf on GitHub Actions runners.
-  # PyInstaller produces a working standalone EXE without that constraint.
+  # ── Windows → produces single PDF Merger.exe  (PyInstaller --onefile) ────
+  # Single .exe — user downloads and double-clicks, no install or folder needed.
+  # --onefile avoids the _internal/pythonXX.dll "Access denied" error that
+  # occurs with --onedir when Windows memory integrity (Core Isolation) is on.
   build-windows:
     runs-on: windows-latest
     steps:
