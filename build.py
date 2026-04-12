@@ -219,21 +219,23 @@ _PYINSTALLER_COMMON = [
 
 
 def build_windows_exe() -> bool:
-    """Build a single-file Windows EXE using PyInstaller.
+    """Build Windows app folder using PyInstaller --onedir.
 
-    Uses --onefile so the user gets one .exe to download and run directly.
-    This avoids the _internal/python3xx.dll 'Access denied' error that
-    occurs with --onedir builds when Windows memory integrity is enabled.
+    Output goes to dist/windows/PDF Merger/ and is then packaged by
+    build_windows_installer() into a proper NSIS installer that installs
+    to Program Files — a location Windows does not block DLL loading from.
+    Using --onefile caused python3xx.dll 'Invalid access to memory location'
+    errors because Windows memory integrity blocks DLLs extracted to %TEMP%.
     """
-    print("Building PDF Merger Windows EXE (PyInstaller — single file)...")
+    print("Building PDF Merger Windows app (PyInstaller — onedir for installer)...")
 
     ico_path = os.path.join(PROJECT_DIR, "Logo.ico")
-    png_path = os.path.join(PROJECT_DIR, "Logo.png")
-    src_data = f"{os.path.join(PROJECT_DIR, 'src')}{os.pathsep}src"
+    png_path  = os.path.join(PROJECT_DIR, "Logo.png")
+    src_data  = f"{os.path.join(PROJECT_DIR, 'src')}{os.pathsep}src"
 
     cmd = [sys.executable, "-m", "PyInstaller",
            "--name", "PDF Merger",
-           "--onefile",               # single .exe — no _internal folder
+           "--onedir",                # folder — NSIS installs it to Program Files
            ] + _PYINSTALLER_COMMON + [
         "--add-data", src_data,
         f"--distpath={os.path.join(DIST_DIR, 'windows')}",
@@ -251,25 +253,32 @@ def build_windows_exe() -> bool:
         cmd.insert(-1, f"--icon={png_path}")
 
     if not _run(cmd):
-        print("FAILED to create EXE")
+        print("FAILED to create Windows app folder")
         return False
 
-    out = os.path.join(DIST_DIR, "windows", "PDF Merger.exe")
-    _print_success("Windows / PyInstaller", out, [
-        "Single .exe — users download and double-click, no install needed",
+    out = os.path.join(DIST_DIR, "windows", "PDF Merger")
+    _print_success("Windows / PyInstaller (onedir)", out, [
+        "Run build_windows_installer() to package into an NSIS installer",
     ])
     return True
 
 
 def build_windows_installer() -> bool:
-    """Build Windows installer using NSIS."""
-    print("Building PDF Merger Windows Installer (.exe)...")
+    """Package the --onedir build into a single NSIS installer EXE.
+
+    The installer puts everything in C:\\Program Files\\PDF Merger\\ so
+    Windows DLL loading works without the memory integrity / Defender
+    blocks that affect running from Downloads or %TEMP%.
+    """
+    print("Building PDF Merger Windows Installer (NSIS)...")
     try:
-        r = subprocess.run(["makensis", "/version"], capture_output=True, timeout=5)
+        r = subprocess.run(["makensis", "/VERSION"], capture_output=True, timeout=5)
         if r.returncode != 0:
             raise FileNotFoundError
     except (FileNotFoundError, subprocess.TimeoutExpired):
-        print("WARNING: NSIS not found. Install from https://nsis.sourceforge.io/")
+        print("ERROR: NSIS not found.")
+        print("  Windows: choco install nsis")
+        print("  Or download from https://nsis.sourceforge.io/")
         return False
 
     nsi = os.path.join(PROJECT_DIR, "windows-installer.nsi")
@@ -277,12 +286,17 @@ def build_windows_installer() -> bool:
         print(f"ERROR: NSIS script not found: {nsi}")
         return False
 
-    if not _run(["makensis", "/DOUTDIR=dist", nsi]):
+    os.makedirs(DIST_DIR, exist_ok=True)
+    if not _run(["makensis", f"/DOUTDIR={DIST_DIR}", nsi]):
         print("FAILED to create installer")
         return False
 
     installer = os.path.join(DIST_DIR, "PDF-Merger-Installer.exe")
-    _print_success("Windows Installer", installer, [])
+    _print_success("Windows NSIS Installer", installer, [
+        "Users run PDF-Merger-Installer.exe — installs to Program Files",
+        "Creates Start Menu + Desktop shortcuts, proper uninstaller",
+        "DLLs load from Program Files — no memory integrity errors",
+    ])
     return True
 
 
