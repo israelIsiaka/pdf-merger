@@ -390,12 +390,117 @@ def build_linux() -> bool:
         return False
 
     binary = os.path.join(DIST_DIR, "linux", "pdf-merger")
-    # Ensure executable bit is set
     if os.path.exists(binary):
         os.chmod(binary, 0o755)
 
     _print_success("Linux / PyInstaller", binary, [
         "Single binary — chmod +x pdf-merger then run it directly",
+    ])
+    return True
+
+
+def build_linux_deb() -> bool:
+    """Build Linux binary then package it as a .deb (Debian/Ubuntu/Kali).
+
+    Users install with:  sudo dpkg -i PDF-Merger.deb
+    Uninstall with:      sudo dpkg -r pdf-merger
+    App appears in the applications menu automatically after install.
+    """
+    # Step 1 — build the binary
+    if not build_linux():
+        return False
+
+    binary = os.path.join(DIST_DIR, "linux", "pdf-merger")
+    if not os.path.exists(binary):
+        print("ERROR: binary not found, cannot build .deb")
+        return False
+
+    print("Packaging .deb...")
+
+    # Step 2 — create package directory tree
+    deb_root    = os.path.join(DIST_DIR, "deb")
+    bin_dir     = os.path.join(deb_root, "usr", "local", "bin")
+    desktop_dir = os.path.join(deb_root, "usr", "share", "applications")
+    icon_dir    = os.path.join(deb_root, "usr", "share", "icons",
+                               "hicolor", "256x256", "apps")
+    debian_dir  = os.path.join(deb_root, "DEBIAN")
+
+    if os.path.exists(deb_root):
+        shutil.rmtree(deb_root)
+    for d in (bin_dir, desktop_dir, icon_dir, debian_dir):
+        os.makedirs(d, exist_ok=True)
+
+    # Binary
+    dest_bin = os.path.join(bin_dir, "pdf-merger")
+    shutil.copy2(binary, dest_bin)
+    os.chmod(dest_bin, 0o755)
+
+    # Icon
+    png_path = os.path.join(PROJECT_DIR, "Logo.png")
+    if os.path.exists(png_path):
+        shutil.copy2(png_path, os.path.join(icon_dir, "pdf-merger.png"))
+
+    # Desktop entry — makes the app appear in the applications menu
+    with open(os.path.join(desktop_dir, "pdf-merger.desktop"), "w") as f:
+        f.write("[Desktop Entry]\n"
+                "Name=PDF Merger\n"
+                "Comment=Professional PDF Processing Suite\n"
+                "Exec=/usr/local/bin/pdf-merger\n"
+                "Icon=pdf-merger\n"
+                "Terminal=false\n"
+                "Type=Application\n"
+                "Categories=Office;Utility;\n")
+
+    # DEBIAN/control
+    with open(os.path.join(debian_dir, "control"), "w") as f:
+        f.write("Package: pdf-merger\n"
+                "Version: 1.0\n"
+                "Section: utils\n"
+                "Priority: optional\n"
+                "Architecture: amd64\n"
+                "Depends: libxcb-cursor0, libgl1, libegl1, "
+                "libdbus-1-3, libfontconfig1\n"
+                "Recommends: libxcb-icccm4, libxcb-image0, "
+                "libxcb-keysyms1, libxcb-randr0, libxcb-render-util0, "
+                "libxcb-xinerama0, libxcb-xkb1, libxkbcommon-x11-0\n"
+                "Maintainer: PDF Merger Project "
+                "<https://github.com/israelIsiaka/pdf-merger>\n"
+                "Homepage: https://github.com/israelIsiaka/pdf-merger\n"
+                "Description: Professional PDF Processing Suite\n"
+                " Free offline PDF toolkit — merge, split, compress,\n"
+                " watermark, convert and sign PDFs. No internet required.\n")
+
+    # DEBIAN/postinst — refresh icon cache and desktop database after install
+    postinst = os.path.join(debian_dir, "postinst")
+    with open(postinst, "w") as f:
+        f.write("#!/bin/sh\n"
+                "update-desktop-database -q /usr/share/applications "
+                "2>/dev/null || true\n"
+                "gtk-update-icon-cache -q -f -t /usr/share/icons/hicolor "
+                "2>/dev/null || true\n")
+    os.chmod(postinst, 0o755)
+
+    # DEBIAN/prerm — cleanup on uninstall
+    prerm = os.path.join(debian_dir, "prerm")
+    with open(prerm, "w") as f:
+        f.write("#!/bin/sh\n"
+                "update-desktop-database -q /usr/share/applications "
+                "2>/dev/null || true\n")
+    os.chmod(prerm, 0o755)
+
+    # Step 3 — build .deb
+    deb_path = os.path.join(DIST_DIR, "PDF-Merger.deb")
+    # --root-owner-group sets file ownership to root:root (dpkg >= 1.19)
+    if not _run(["dpkg-deb", "--build", "--root-owner-group", deb_root, deb_path]):
+        print("FAILED to build .deb")
+        return False
+
+    shutil.rmtree(deb_root, ignore_errors=True)
+
+    _print_success("Linux .deb", deb_path, [
+        "Install:   sudo dpkg -i PDF-Merger.deb",
+        "Uninstall: sudo dpkg -r pdf-merger",
+        "App appears in applications menu after install",
     ])
     return True
 
@@ -438,7 +543,7 @@ if __name__ == "__main__":
         success = build_macos_nuitka() if use_nuitka else build_macos_dmg()
 
     elif target == "linux":
-        success = build_linux_nuitka() if use_nuitka else build_linux()
+        success = build_linux_nuitka() if use_nuitka else build_linux_deb()
 
     else:
         print(f"ERROR: Unknown target: {target}")
