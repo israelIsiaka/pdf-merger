@@ -128,9 +128,7 @@ class PDFAnnotator:
         self,
         input_path: str,
         output_path: str,
-        text_lines: List[str],
-        text_pos_x: float = _DEFAULT_TEXT_X,
-        text_pos_y: float = _DEFAULT_TEXT_Y,
+        text_items: List[Tuple[str, float, float]],
         frequency: str = FREQ_ALL,
         custom_pages: str = "",          # e.g. "1,3,5-7"  (overrides frequency)
         font_size: int = 11,
@@ -143,6 +141,8 @@ class PDFAnnotator:
     ) -> Tuple[bool, str]:
         """
         Apply annotation to all applicable pages and write to output_path.
+        text_items is a list of (text, x_frac, y_frac) — one entry per field,
+        each independently positioned.
         Returns (success, message).
         """
         if not os.path.isfile(input_path):
@@ -150,14 +150,12 @@ class PDFAnnotator:
         if not output_path or not output_path.strip():
             return False, "No output path specified."
 
-        lines     = [l for l in text_lines if l.strip()]
-        has_text  = bool(lines)
-        has_sig   = bool(sig_bytes)
+        items    = [(t, x, y) for t, x, y in text_items if t.strip()]
+        has_text = bool(items)
+        has_sig  = bool(sig_bytes)
         if not has_text and not has_sig:
             return False, "No annotation content provided."
 
-        text       = "\n".join(lines) if lines else ""
-        max_chars  = max((len(l) for l in lines), default=0)
         rgb        = _hex_to_rgb(color)
         sig_aspect = _sig_aspect_from_bytes(sig_bytes) if has_sig else 3.5
         tmp_path: Optional[str] = None
@@ -182,11 +180,11 @@ class PDFAnnotator:
                 page = doc[i]
 
                 if has_text:
-                    rect = _text_rect(page.rect, text_pos_x, text_pos_y,
-                                      len(lines), max_chars, font_size)
-                    page.insert_textbox(rect, text, fontsize=font_size,
-                                        color=rgb,
-                                        align=fitz.TEXT_ALIGN_LEFT)
+                    for text, tx, ty in items:
+                        rect = _text_rect(page.rect, tx, ty, 1, len(text), font_size)
+                        page.insert_textbox(rect, text, fontsize=font_size,
+                                            color=rgb,
+                                            align=fitz.TEXT_ALIGN_LEFT)
 
                 if has_sig:
                     srect = _sig_rect(page.rect, sig_pos_x, sig_pos_y,

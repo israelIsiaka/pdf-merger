@@ -149,33 +149,29 @@ class _AnnotateWorker(QThread):
     annotate_done    = pyqtSignal(bool, str)
 
     def __init__(self, annotator, input_path: str, output_path: str,
-                 text_lines: list,
-                 text_pos_x: float, text_pos_y: float,
+                 text_items: list,
                  frequency: str, custom_pages: str,
                  font_size: int, color: str,
                  sig_bytes: bytes = b"",
                  sig_pos_x: float = 0.50, sig_pos_y: float = 0.72,
                  sig_scale: float = 0.25):
         super().__init__()
-        self._annotator   = annotator
-        self._input       = input_path
-        self._output      = output_path
-        self._lines       = text_lines
-        self._text_pos_x  = text_pos_x
-        self._text_pos_y  = text_pos_y
-        self._frequency   = frequency
+        self._annotator    = annotator
+        self._input        = input_path
+        self._output       = output_path
+        self._text_items   = text_items
+        self._frequency    = frequency
         self._custom_pages = custom_pages
-        self._font_size   = font_size
-        self._color       = color
-        self._sig_bytes   = sig_bytes
-        self._sig_pos_x   = sig_pos_x
-        self._sig_pos_y   = sig_pos_y
-        self._sig_scale   = sig_scale
+        self._font_size    = font_size
+        self._color        = color
+        self._sig_bytes    = sig_bytes
+        self._sig_pos_x    = sig_pos_x
+        self._sig_pos_y    = sig_pos_y
+        self._sig_scale    = sig_scale
 
     def run(self):
         success, msg = self._annotator.apply(
-            self._input, self._output, self._lines,
-            self._text_pos_x, self._text_pos_y,
+            self._input, self._output, self._text_items,
             self._frequency, self._custom_pages,
             self._font_size, self._color,
             self._sig_bytes, self._sig_pos_x, self._sig_pos_y, self._sig_scale,

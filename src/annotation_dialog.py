@@ -186,34 +186,42 @@ class _SignaturePadDialog(QDialog):
 
 class _AnnotationCanvas(QWidget):
     """
-    Shows a PDF page and lets the user drag two handles:
-      T — text block (name / title / date / custom)
-      S — signature image
+    PDF page preview with independently draggable handles — one per field.
 
-    Both handles move freely; positions are reported as (x_frac, y_frac)
-    fractions of the page dimensions, representing the center of each block.
+    Handles (index → label):
+      0 N  Full Name
+      1 T  Title / Role
+      2 D  Date
+      3 C  Custom text
+      4 S  Signature image
+
+    Each handle is visible only when its content is non-empty.
+    Drag any handle to reposition it independently on the page.
     """
 
-    text_pos_changed = pyqtSignal(float, float)
-    sig_pos_changed  = pyqtSignal(float, float)
+    handle_moved = pyqtSignal(int, float, float)  # (idx, x_frac, y_frac)
 
-    _HANDLE  = 14      # handle size in px
-    _NONE, _TEXT, _SIG = 0, 1, 2
-    _COL_TEXT = QColor("#1a73e8")
-    _COL_SIG  = QColor("#34a853")
+    # (label, color_hex, default_x, default_y)
+    _HDEFS = [
+        ("N", "#1a73e8", 0.12, 0.78),
+        ("T", "#0f9d58", 0.12, 0.84),
+        ("D", "#f4b400", 0.12, 0.89),
+        ("C", "#ea4335", 0.12, 0.94),
+        ("S", "#34a853", _DEFAULT_SIG_X, _DEFAULT_SIG_Y),
+    ]
+    _HANDLE = 14
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self._page_px: QPixmap | None = None
-        self._sig_px:  QPixmap | None = None
-        self._lines:   list = []
-        self._font_sz: int  = 11
-        self._color:   str  = "#333333"
-        self._text_pos = (_DEFAULT_TEXT_X, _DEFAULT_TEXT_Y)
-        self._sig_pos  = (_DEFAULT_SIG_X,  _DEFAULT_SIG_Y)
-        self._has_sig  = False
-        self._dragging = self._NONE
-        self._drag_off = (0.0, 0.0)
+        self._page_px:   QPixmap | None = None
+        self._sig_px:    QPixmap | None = None
+        self._texts:     dict = {}
+        self._active:    dict = {i: False for i in range(5)}
+        self._positions: dict = {i: (h[2], h[3]) for i, h in enumerate(self._HDEFS)}
+        self._font_sz:   int  = 11
+        self._color:     str  = "#333333"
+        self._dragging:  int  = -1
+        self._drag_off:  tuple = (0.0, 0.0)
 
         self.setMinimumSize(240, 320)
         self.setSizePolicy(QSizePolicy.Policy.Expanding,
@@ -226,58 +234,60 @@ class _AnnotationCanvas(QWidget):
         self._page_px = px
         self.update()
 
-    def set_content(self, lines: list, font_sz: int, color: str) -> None:
-        self._lines   = lines
-        self._font_sz = font_sz
+    def set_font_style(self, size: int, color: str) -> None:
+        self._font_sz = size
         self._color   = color
         self.update()
 
+    def set_text(self, idx: int, text: str) -> None:
+        """Set text for handle idx and auto-show/hide the handle."""
+        self._texts[idx]  = text.strip()
+        self._active[idx] = bool(text.strip())
+        self.update()
+
     def set_signature(self, px: QPixmap | None) -> None:
-        self._sig_px  = px
-        self._has_sig = px is not None
+        self._sig_px     = px
+        self._active[4]  = px is not None
         self.update()
 
-    def set_text_pos(self, x: float, y: float) -> None:
-        self._text_pos = (x, y)
-        self.update()
+    def get_position(self, idx: int) -> tuple:
+        return self._positions[idx]
 
-    def set_sig_pos(self, x: float, y: float) -> None:
-        self._sig_pos = (x, y)
+    def set_position(self, idx: int, x: float, y: float) -> None:
+        self._positions[idx] = (x, y)
         self.update()
 
     # -- Coordinate mapping ────────────────────────────────────────────────────
 
     def _page_rect(self) -> QRect:
-        """Compute the display rect of the page inside the widget (letterboxed)."""
         if not self._page_px:
             return self.rect()
         pw, ph = self._page_px.width(), self._page_px.height()
         ww, wh = self.width(), self.height()
-        scale = min(ww / pw, wh / ph)
+        scale  = min(ww / pw, wh / ph)
         dw, dh = int(pw * scale), int(ph * scale)
         return QRect((ww - dw) // 2, (wh - dh) // 2, dw, dh)
 
-    def _to_widget(self, x_f: float, y_f: float) -> tuple:
+    def _to_widget(self, xf: float, yf: float) -> tuple:
         r = self._page_rect()
-        return (int(r.x() + r.width()  * x_f),
-                int(r.y() + r.height() * y_f))
+        return int(r.x() + r.width() * xf), int(r.y() + r.height() * yf)
 
     def _to_frac(self, wx: int, wy: int) -> tuple:
         r = self._page_rect()
         x = (wx - r.x()) / max(r.width(),  1)
         y = (wy - r.y()) / max(r.height(), 1)
-        return (max(0.02, min(0.98, x)), max(0.02, min(0.98, y)))
+        return max(0.02, min(0.98, x)), max(0.02, min(0.98, y))
 
     def _hit(self, pos: QPoint) -> int:
+        """Return the index of the handle under pos, or -1 if none."""
         h = self._HANDLE + 5
-        tx, ty = self._to_widget(*self._text_pos)
-        if abs(pos.x() - tx) <= h and abs(pos.y() - ty) <= h:
-            return self._TEXT
-        if self._has_sig:
-            sx, sy = self._to_widget(*self._sig_pos)
-            if abs(pos.x() - sx) <= h and abs(pos.y() - sy) <= h:
-                return self._SIG
-        return self._NONE
+        for i in range(5):
+            if not self._active[i]:
+                continue
+            wx, wy = self._to_widget(*self._positions[i])
+            if abs(pos.x() - wx) <= h and abs(pos.y() - wy) <= h:
+                return i
+        return -1
 
     # -- Mouse events ──────────────────────────────────────────────────────────
 
@@ -286,40 +296,34 @@ class _AnnotationCanvas(QWidget):
             return
         pos = event.position().toPoint()
         hit = self._hit(pos)
-        if hit == self._NONE:
+        if hit == -1:
             return
         self._dragging = hit
-        item_pos = self._text_pos if hit == self._TEXT else self._sig_pos
-        wx, wy = self._to_widget(*item_pos)
+        wx, wy = self._to_widget(*self._positions[hit])
         self._drag_off = (pos.x() - wx, pos.y() - wy)
         self.setCursor(Qt.CursorShape.ClosedHandCursor)
 
     def mouseMoveEvent(self, event) -> None:
         pos = event.position().toPoint()
-        if self._dragging != self._NONE:
+        if self._dragging != -1:
             nx = pos.x() - self._drag_off[0]
             ny = pos.y() - self._drag_off[1]
             xf, yf = self._to_frac(nx, ny)
-            if self._dragging == self._TEXT:
-                self._text_pos = (xf, yf)
-            else:
-                self._sig_pos = (xf, yf)
+            self._positions[self._dragging] = (xf, yf)
             self.update()
         else:
             hit = self._hit(pos)
             self.setCursor(
-                Qt.CursorShape.OpenHandCursor if hit != self._NONE
+                Qt.CursorShape.OpenHandCursor if hit != -1
                 else Qt.CursorShape.ArrowCursor
             )
 
     def mouseReleaseEvent(self, event) -> None:
-        if self._dragging == self._NONE:
+        if self._dragging == -1:
             return
-        if self._dragging == self._TEXT:
-            self.text_pos_changed.emit(*self._text_pos)
-        else:
-            self.sig_pos_changed.emit(*self._sig_pos)
-        self._dragging = self._NONE
+        xf, yf = self._positions[self._dragging]
+        self.handle_moved.emit(self._dragging, xf, yf)
+        self._dragging = -1
         self.setCursor(Qt.CursorShape.ArrowCursor)
 
     # -- Paint ─────────────────────────────────────────────────────────────────
@@ -341,47 +345,48 @@ class _AnnotationCanvas(QWidget):
             p.setPen(QColor("#999999"))
             p.drawText(pr, Qt.AlignmentFlag.AlignCenter, "Loading page...")
 
-        # Text overlay
-        if self._lines:
-            tx, ty = self._to_widget(*self._text_pos)
-            self._paint_text(p, tx, ty, pr)
-
-        # Signature overlay
-        if self._has_sig and self._sig_px:
-            sx, sy = self._to_widget(*self._sig_pos)
-            self._paint_sig(p, sx, sy, pr.width())
-
-        # Handles (always visible so user knows where to drag)
-        tx, ty = self._to_widget(*self._text_pos)
-        self._paint_handle(p, tx, ty, self._COL_TEXT, "T")
-
-        if self._has_sig:
-            sx, sy = self._to_widget(*self._sig_pos)
-            self._paint_handle(p, sx, sy, self._COL_SIG, "S")
-
-        p.end()
-
-    def _paint_text(self, p: QPainter, cx: int, cy: int, pr: QRect) -> None:
+        # Text items (N, T, D, C — indices 0-3)
         font = QFont()
         font.setPointSize(max(6, self._font_sz - 3))
         p.setFont(font)
         fm = QFontMetrics(font)
+        for i in range(4):
+            text = self._texts.get(i, "")
+            if self._active[i] and text:
+                wx, wy = self._to_widget(*self._positions[i])
+                self._paint_text_item(p, wx, wy, text, i, pr, fm)
+
+        # Signature overlay (index 4)
+        if self._active[4] and self._sig_px:
+            sx, sy = self._to_widget(*self._positions[4])
+            self._paint_sig(p, sx, sy, pr.width())
+
+        # Handles — drawn on top for all active items
+        for i in range(5):
+            if self._active[i]:
+                wx, wy = self._to_widget(*self._positions[i])
+                label, color_hex, _, _ = self._HDEFS[i]
+                self._paint_handle(p, wx, wy, QColor(color_hex), label)
+
+        p.end()
+
+    def _paint_text_item(self, p: QPainter, cx: int, cy: int, text: str,
+                         idx: int, pr: QRect, fm: QFontMetrics) -> None:
         lh = fm.height() + 1
-        widths = [fm.horizontalAdvance(l) for l in self._lines]
-        bw = max(widths) + 8
-        bh = len(self._lines) * lh + 6
+        bw = fm.horizontalAdvance(text) + 8
+        bh = lh + 6
         x0 = cx - bw // 2
         y0 = cy - bh // 2
-        # clamp inside page
         x0 = max(pr.left() + 2, min(x0, pr.right()  - bw - 2))
         y0 = max(pr.top()  + 2, min(y0, pr.bottom() - bh - 2))
-
-        p.fillRect(x0 - 2, y0 - 2, bw + 4, bh + 4, QColor(255, 255, 210, 200))
-        p.setPen(QPen(self._COL_TEXT, 1))
+        _, color_hex, _, _ = self._HDEFS[idx]
+        bg = QColor(color_hex); bg.setAlpha(30)
+        border = QColor(color_hex); border.setAlpha(160)
+        p.fillRect(x0 - 2, y0 - 2, bw + 4, bh + 4, bg)
+        p.setPen(QPen(border, 1))
         p.drawRect(x0 - 2, y0 - 2, bw + 4, bh + 4)
         p.setPen(QColor(self._color))
-        for i, line in enumerate(self._lines):
-            p.drawText(x0 + 4, y0 + i * lh + fm.ascent() + 3, line)
+        p.drawText(x0 + 4, y0 + fm.ascent() + 3, text)
 
     def _paint_sig(self, p: QPainter, cx: int, cy: int, page_w: int) -> None:
         sw = max(60, int(page_w * 0.28))
@@ -389,7 +394,7 @@ class _AnnotationCanvas(QWidget):
         sh = max(20, int(sw / aspect))
         x0, y0 = cx - sw // 2, cy - sh // 2
         p.drawPixmap(x0, y0, sw, sh, self._sig_px)
-        p.setPen(QPen(self._COL_SIG, 1, Qt.PenStyle.DashLine))
+        p.setPen(QPen(QColor("#34a853"), 1, Qt.PenStyle.DashLine))
         p.drawRect(x0, y0, sw, sh)
 
     def _paint_handle(self, p: QPainter, cx: int, cy: int,
@@ -585,12 +590,12 @@ class _AnnotateDialog(QDialog):
         right = QVBoxLayout(); right.setSpacing(6)
         split.addLayout(right, 48)
 
-        hdr = QLabel("Drag T / S handles to position")
+        hdr = QLabel("Drag handles to position each field")
         hdr.setObjectName("sectionTitle")
         right.addWidget(hdr)
 
         hint = QLabel(
-            "T = text block   S = signature  "
+            "N = Name   T = Title   D = Date   C = Custom   S = Signature  "
             "(handles appear after content is added)"
         )
         hint.setObjectName("hintLabel")
@@ -612,8 +617,6 @@ class _AnnotateDialog(QDialog):
         right.addLayout(nav)
 
         self._canvas = _AnnotationCanvas()
-        self._canvas.text_pos_changed.connect(self._canvas.set_text_pos)
-        self._canvas.sig_pos_changed.connect(self._canvas.set_sig_pos)
         right.addWidget(self._canvas, 1)
 
         self._loading_lbl = QLabel("Rendering page...")
@@ -853,11 +856,11 @@ class _AnnotateDialog(QDialog):
     # -- Canvas sync ───────────────────────────────────────────────────────────
 
     def _update_canvas_content(self) -> None:
-        self._canvas.set_content(
-            self._collect_lines(),
-            self._font_spin.value(),
-            self._color_hex,
-        )
+        self._canvas.set_text(0, self._name_f.text())
+        self._canvas.set_text(1, self._title_f.text())
+        self._canvas.set_text(2, self._date_f.text())
+        self._canvas.set_text(3, self._custom_f.text())
+        self._canvas.set_font_style(self._font_spin.value(), self._color_hex)
 
     # -- Collect fields ────────────────────────────────────────────────────────
 
@@ -928,16 +931,26 @@ class _AnnotateDialog(QDialog):
         self._set_busy(True)
         self._status.setText("Applying annotation...")
 
-        tx, ty = self._canvas._text_pos
-        sx, sy = self._canvas._sig_pos
+        # Build per-field text items: (text, x_frac, y_frac)
+        field_texts = [
+            self._name_f.text().strip(),
+            self._title_f.text().strip(),
+            self._date_f.text().strip(),
+            self._custom_f.text().strip(),
+        ]
+        text_items = [
+            (text, *self._canvas.get_position(i))
+            for i, text in enumerate(field_texts)
+            if text
+        ]
+
+        sx, sy = self._canvas.get_position(4)
 
         self._worker = _AnnotateWorker(
             annotator    = self._annotator,
             input_path   = self._input_path,
             output_path  = self._output_full,
-            text_lines   = lines,
-            text_pos_x   = tx,
-            text_pos_y   = ty,
+            text_items   = text_items,
             frequency    = self._get_frequency(),
             custom_pages = self._get_custom_pages(),
             font_size    = self._font_spin.value(),
