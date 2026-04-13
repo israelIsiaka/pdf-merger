@@ -111,6 +111,27 @@ dist/windows/
 
 ## 🔍 Troubleshooting
 
+### Windows Build: "Failed to load Python DLL" Error at Runtime
+
+**Problem:** Users get an error when running the built app on their Windows machine.
+
+**Cause:** PyInstaller's `--onefile` mode extracts DLLs to `%TEMP%`, which Windows Defender blocks.
+
+**Solution:** Always use `--onedir` for Windows builds:
+
+```bash
+# ✅ CORRECT — uses --onedir + NSIS installer
+python build.py windows            # creates dist/windows/PDF Merger/ folder
+python build.py windows-installer  # packages into NSIS installer
+
+# ❌ WRONG — do not use --onefile on Windows
+```
+
+**For End Users:** 
+1. Install Visual C++ Redistributable for Visual Studio 2022 (x64)
+2. Use the NSIS installer (not the portable folder)
+3. Install to `C:\Program Files\PDF Merger` (not elsewhere)
+
 ### ZIP creation fails on macOS
 ```bash
 # If you get permission errors, use ditto instead

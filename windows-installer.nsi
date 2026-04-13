@@ -116,10 +116,78 @@ LangString DESC_SEC_DESKTOP   ${LANG_ENGLISH} "Create shortcut on Desktop"
 !insertmacro MUI_FUNCTION_DESCRIPTION_END
 
 ; ============================================================================
-; Detect existing install
+; Check and Install Visual C++ Redistributable (prerequisite)
+; ============================================================================
+
+Function CheckAndInstallVCRedist
+    ; Check if Visual C++ 2022 Redistributable (x64) is already installed
+    ReadRegDWord $0 HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\{3c635d47-e510-482a-95f0-58a9e8a95d6d}" "DisplayVersion"
+    ${If} $0 != ""
+        ; Already installed, proceed silently
+        return
+    ${EndIf}
+
+    ; Not installed, show status and download/install automatically
+    IntOp $0 0 + 0  ; Initialize counter
+    SetDetailsView show
+    DetailPrint ""
+    DetailPrint "Checking Visual C++ 2022 Runtime..."
+    DetailPrint "Not found. Downloading and installing..."
+    DetailPrint ""
+
+    ; Download VC++ Redistributable to temp
+    SetOutPath "$TEMP"
+    StrCpy $1 "$TEMP\vc_redist_x64.exe"
+    DetailPrint "Downloading Visual C++ Redistributable (required library)..."
+    DetailPrint "This is a free library from Microsoft and only happens once."
+    
+    ; Use Windows built-in downloader (more reliable than NSIS methods)
+    nsExec::ExecToLog 'powershell -Command "try { [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12; (New-Object Net.WebClient).DownloadFile(\"https://aka.ms/vs/17/release/vc_redist.x64.exe\", \"$1\") } catch { exit 1 }"'
+    Pop $0
+    
+    ${If} $0 != 0
+        ; Download failed, show URL and ask user
+        MessageBox MB_OKCANCEL "Could not auto-download Visual C++ Redistributable.$\n$\n\
+            Please download it manually:$\n\
+            https://aka.ms/vs/17/release/vc_redist.x64.exe$\n$\n\
+            Install it, then run this installer again." \
+            IDOK OpenURL IDCANCEL AbortVC
+        
+        OpenURL:
+            ExecShell "open" "https://aka.ms/vs/17/release/vc_redist.x64.exe"
+            MessageBox MB_OK "Please install Visual C++ Redistributable, then run this installer again."
+            Abort
+        
+        AbortVC:
+            Abort
+    ${EndIf}
+
+    ; Install silently
+    DetailPrint "Installing Visual C++ Redistributable (this may take a minute)..."
+    nsExec::ExecToLog '"$1" /q /norestart'
+    Pop $0
+    
+    ${If} $0 != 0
+        MessageBox MB_ICONEXCLAMATION "Visual C++ installation returned error code $0.$\n$\nPDF Merger may not work correctly.$\n$\nContinuing anyway..."
+    ${Else}
+        DetailPrint "Visual C++ Redistributable installed successfully!"
+    ${EndIf}
+    
+    ; Clean up
+    Delete "$1"
+    DetailPrint ""
+    return
+FunctionEnd
+
+; ============================================================================
+; Uninstaller Section
 ; ============================================================================
 
 Function .onInit
+    ; Check and install Visual C++ Redistributable first
+    Call CheckAndInstallVCRedist
+
+    ; Check if already installed
     ReadRegStr $R0 HKCU "Software\${APPNAME}" ""
     ${If} $R0 != ""
         MessageBox MB_YESNO \

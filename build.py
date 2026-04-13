@@ -207,14 +207,19 @@ _PYINSTALLER_COMMON = [
     "--hidden-import=PyQt6.QtWidgets",
     "--hidden-import=PyQt6.QtCore",
     "--hidden-import=PyQt6.QtGui",
+    "--hidden-import=PyQt6.QtPrintSupport",
     "--hidden-import=pypdf",
     "--hidden-import=fitz",
     "--hidden-import=fitz._fitz",
     "--hidden-import=PIL",
     "--hidden-import=PIL._imaging",
+    "--hidden-import=pdf2docx",
+    "--hidden-import=pdf2image",
+    "--hidden-import=python_docx",
     "--collect-all=PyQt6",
     "--collect-all=fitz",
     "--collect-all=PIL",
+    "--collect-all=pdf2docx",
 ]
 
 

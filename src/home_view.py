@@ -29,9 +29,10 @@ TOOLS = [
     ("Word to PDF",   "Convert Word documents\nto PDF format",            "W",  "#3b82f6", 8),
     ("PDF to Images", "Export each page as\na high-quality image",        "I",  "#22c55e", 9),
     ("Images to PDF", "Combine images into\na single PDF document",       "I",  "#ec4899", 10),
-    ("History",       "View and re-open\nrecently processed files",       "H",  "#64748b", 11),
-    ("Help / FAQ",    "Tips, shortcuts and\nfrequently asked questions",  "~",  "#475569", 12),
-    ("Sign / Annotate", "Add signatures, stamps\nand drawings to PDFs",  "S",  "#f97316", 13),
+    ("Sign / Annotate", "Add signatures, stamps\nand drawings to PDFs",  "S",  "#f97316", 11),
+    ("History",       "View and re-open\nrecently processed files",       "H",  "#64748b", 12),
+    ("Help / FAQ",    "Tips, shortcuts and\nfrequently asked questions",  "~",  "#475569", 13),
+    ("Contributors",  "Meet the talented people\nbehind PDF Merger",       "♥",  "#ec4899", 14),
 ]
 
 _BG_COLOR = "#080c18"   # constellation base — also used as solid fallback

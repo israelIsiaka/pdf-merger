@@ -25,6 +25,7 @@ from .annotator import PDFAnnotator
 from .compressor import PDFCompressor, LEVEL_LIGHT, LEVEL_MEDIUM, LEVEL_HIGH, LEVEL_LABELS, LEVEL_DESCRIPTIONS
 from .converter import (PDFToWordConverter, WordToPDFConverter,
                         PDFToImagesConverter, ImagesToPDFConverter)
+from .contributors import build_contributors_widget
 from .faq import build_faq_widget
 from .dialogs import _PasswordDialog
 from .history import HistoryManager
@@ -257,9 +258,10 @@ class PDFMergerApp(QMainWindow):
         self.tabs.addTab(self._build_word_to_pdf_tab(),  "  Word to PDF  ")
         self.tabs.addTab(self._build_pdf_to_img_tab(),   "  PDF to Image  ")
         self.tabs.addTab(self._build_img_to_pdf_tab(),   "  Image to PDF  ")
+        self.tabs.addTab(self._build_sign_tab(),         "  Sign / Annotate  ")
         self.tabs.addTab(self._build_history_tab(),      "  History  ")
         self.tabs.addTab(self._build_help_tab(),         "  Help / FAQ  ")
-        self.tabs.addTab(self._build_sign_tab(),         "  Sign / Annotate  ")
+        self.tabs.addTab(self._build_contributors_tab(), "  Contributors  ")
 
         self.tabs.setUsesScrollButtons(True)
         self.tabs.currentChanged.connect(self._on_tab_change)
@@ -1682,6 +1684,16 @@ class PDFMergerApp(QMainWindow):
         vlayout.setSpacing(0)
 
         vlayout.addWidget(build_faq_widget(self))
+        return outer
+
+    def _build_contributors_tab(self) -> QWidget:
+        outer   = QWidget()
+        outer.setObjectName("tabPage")
+        vlayout = QVBoxLayout(outer)
+        vlayout.setContentsMargins(0, 0, 0, 0)
+        vlayout.setSpacing(0)
+
+        vlayout.addWidget(build_contributors_widget(self))
         return outer
 
     # -- Widget factories ──────────────────────────────────────────────────────

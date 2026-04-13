@@ -155,6 +155,41 @@ chmod +x /Applications/PDF\ Merger.app/Contents/MacOS/PDF\ Merger
 - Ensure Windows Defender isn't blocking the app (Check Settings → Virus & protection)
 - If using portable version, extract to a folder the app can write to (avoid Program Files)
 
+### Windows: "Failed to load Python DLL" Error
+
+This error appears when Windows cannot load the Python runtime:
+
+```
+Failed to load Python DLL 'C:\Program Files\PDF Merger_internal\python311.dll'
+LoadLibrary: Invalid access to memory location.
+```
+
+**Solution:**
+
+1. **Install Visual C++ Redistributable** (most common fix):
+   - Download: [Visual C++ Redistributable for Visual Studio 2022](https://support.microsoft.com/en-us/help/2977003)
+   - Choose **x64** version for 64-bit Windows
+   - Run the installer and restart your computer
+   - Then try running PDF Merger again
+
+2. **If still not working, reinstall PDF Merger**:
+   - Uninstall: Control Panel → Programs → Uninstall a program → PDF Merger
+   - Delete `C:\Program Files\PDF Merger` folder if it still exists
+   - Download the installer again from the releases page
+   - Run as Administrator
+   - Restart your computer before launching the app
+
+3. **Use Portable Version** (if installer still fails):
+   - Download `PDF-Merger-Windows.zip` instead of the installer
+   - Extract to `C:\Users\YourUsername\Documents\PDF-Merger`
+   - Run `PDF Merger.exe` directly
+   - This version doesn't need installation
+
+4. **Still failing?** This might indicate:
+   - Antivirus/Defender blocking DLL access (temporarily disable and test)
+   - Corrupted Windows system files (run `sfc /scannow` in admin terminal)
+   - Incompatible Windows build (ensure you have latest Windows 10/11 updates)
+
 ### "File Not Found" Error
 
 - Ensure the selected PDF files still exist at their locations
