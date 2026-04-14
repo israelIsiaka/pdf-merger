@@ -49,29 +49,30 @@ class _ViewerScreenState extends State<ViewerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return AppScaffold(
       title: 'View PDF',
       actions: [
         if (_filePath != null) ...[
           IconButton(
-            icon: const Icon(Icons.zoom_in_rounded),
+            icon: Icon(Icons.zoom_in_rounded),
             tooltip: 'Zoom In',
             onPressed: () => _viewerController.zoomUp(),
           ),
           IconButton(
-            icon: const Icon(Icons.zoom_out_rounded),
+            icon: Icon(Icons.zoom_out_rounded),
             tooltip: 'Zoom Out',
             onPressed: () => _viewerController.zoomDown(),
           ),
           IconButton(
-            icon: const Icon(Icons.fit_screen_rounded),
+            icon: Icon(Icons.fit_screen_rounded),
             tooltip: 'Fit Page',
             onPressed: () => _viewerController.setZoom(
                 _viewerController.centerPosition, 1.0),
           ),
         ],
         IconButton(
-          icon: const Icon(Icons.folder_open_rounded),
+          icon: Icon(Icons.folder_open_rounded),
           tooltip: 'Open PDF',
           onPressed: _pickFile,
         ),
@@ -90,27 +91,28 @@ class _ViewerScreenState extends State<ViewerScreen> {
   }
 
   Widget _emptyState() {
+      final c = AppColors.of(context);
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.picture_as_pdf_rounded,
-              size: 64, color: AppTheme.textSecondary),
-          const SizedBox(height: 16),
-          const Text('No PDF open',
+          Icon(Icons.picture_as_pdf_rounded,
+              size: 64, color: c.textSecondary),
+          SizedBox(height: 16),
+          Text('No PDF open',
               style: TextStyle(
-                  color: AppTheme.textPrimary,
+                  color: c.textPrimary,
                   fontSize: 18,
                   fontWeight: FontWeight.w500)),
-          const SizedBox(height: 8),
-          const Text('Click Open PDF to load a document',
+          SizedBox(height: 8),
+          Text('Click Open PDF to load a document',
               style:
-                  TextStyle(color: AppTheme.textSecondary, fontSize: 14)),
-          const SizedBox(height: 24),
+                  TextStyle(color: c.textSecondary, fontSize: 14)),
+          SizedBox(height: 24),
           ElevatedButton.icon(
             onPressed: _pickFile,
-            icon: const Icon(Icons.folder_open_rounded),
-            label: const Text('Open PDF'),
+            icon: Icon(Icons.folder_open_rounded),
+            label: Text('Open PDF'),
           ),
         ],
       ),
@@ -118,6 +120,7 @@ class _ViewerScreenState extends State<ViewerScreen> {
   }
 
   Widget _buildViewer() {
+      final c = AppColors.of(context);
     // Build a passwordProvider that returns the entered password once,
     // then prompts the user if the password was wrong or not yet entered.
     PdfPasswordProvider? provider;
@@ -138,7 +141,7 @@ class _ViewerScreenState extends State<ViewerScreen> {
       passwordProvider: provider,
       controller: _viewerController,
       params: PdfViewerParams(
-        backgroundColor: AppTheme.background,
+        backgroundColor: c.background,
         onDocumentChanged: (doc) {
           if (doc == null && mounted) {
             // Document failed / needs password
@@ -150,60 +153,61 @@ class _ViewerScreenState extends State<ViewerScreen> {
   }
 
   Widget _passwordPrompt() {
+      final c = AppColors.of(context);
     return Center(
       child: Container(
         width: 360,
-        padding: const EdgeInsets.all(28),
+        padding: EdgeInsets.all(28),
         decoration: BoxDecoration(
-          color: AppTheme.cardBackground,
+          color: c.cardBackground,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppTheme.cardBorder),
+          border: Border.all(color: c.cardBorder),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.lock_rounded,
+            Icon(Icons.lock_rounded,
                 size: 36, color: Color(0xFF22d3ee)),
-            const SizedBox(height: 14),
-            const Text('Password Protected',
+            SizedBox(height: 14),
+            Text('Password Protected',
                 style: TextStyle(
-                    color: AppTheme.textPrimary,
+                    color: c.textPrimary,
                     fontSize: 16,
                     fontWeight: FontWeight.w600)),
-            const SizedBox(height: 6),
-            const Text('Enter the password to open this PDF',
+            SizedBox(height: 6),
+            Text('Enter the password to open this PDF',
                 style: TextStyle(
-                    color: AppTheme.textSecondary, fontSize: 13)),
-            const SizedBox(height: 20),
+                    color: c.textSecondary, fontSize: 13)),
+            SizedBox(height: 20),
             TextField(
               controller: _passCtrl,
               obscureText: !_showPassword,
               autofocus: true,
-              style: const TextStyle(
-                  color: AppTheme.textPrimary, fontSize: 13),
+              style: TextStyle(
+                  color: c.textPrimary, fontSize: 13),
               decoration: InputDecoration(
                 hintText: 'Password',
-                prefixIcon: const Icon(Icons.key_rounded,
-                    size: 18, color: AppTheme.textSecondary),
+                prefixIcon: Icon(Icons.key_rounded,
+                    size: 18, color: c.textSecondary),
                 suffixIcon: IconButton(
                   icon: Icon(
                       _showPassword
                           ? Icons.visibility_off
                           : Icons.visibility,
                       size: 18,
-                      color: AppTheme.textSecondary),
+                      color: c.textSecondary),
                   onPressed: () =>
                       setState(() => _showPassword = !_showPassword),
                 ),
               ),
               onSubmitted: (_) => _submitPassword(),
             ),
-            const SizedBox(height: 16),
+            SizedBox(height: 16),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: _submitPassword,
-                child: const Text('Open'),
+                child: Text('Open'),
               ),
             ),
           ],
@@ -213,32 +217,33 @@ class _ViewerScreenState extends State<ViewerScreen> {
   }
 
   Widget _buildPageBar() {
+      final c = AppColors.of(context);
     return Container(
       height: 44,
-      decoration: const BoxDecoration(
-        color: AppTheme.cardBackground,
-        border: Border(top: BorderSide(color: AppTheme.cardBorder)),
+      decoration: BoxDecoration(
+        color: c.cardBackground,
+        border: Border(top: BorderSide(color: c.cardBorder)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           IconButton(
-            icon: const Icon(Icons.first_page_rounded,
-                size: 20, color: AppTheme.textSecondary),
+            icon: Icon(Icons.first_page_rounded,
+                size: 20, color: c.textSecondary),
             onPressed: () =>
                 _viewerController.goToPage(pageNumber: 1),
             tooltip: 'First page',
           ),
           IconButton(
-            icon: const Icon(Icons.chevron_left_rounded,
-                size: 20, color: AppTheme.textSecondary),
+            icon: Icon(Icons.chevron_left_rounded,
+                size: 20, color: c.textSecondary),
             onPressed: () {
               final cur = _viewerController.pageNumber ?? 2;
               _viewerController.goToPage(pageNumber: cur - 1);
             },
             tooltip: 'Previous page',
           ),
-          const SizedBox(width: 8),
+          SizedBox(width: 8),
           ValueListenableBuilder<Matrix4>(
             valueListenable: _viewerController,
             builder: (context, _, _) {
@@ -249,15 +254,15 @@ class _ViewerScreenState extends State<ViewerScreen> {
               });
               return Text(
                 'Page $current of $total',
-                style: const TextStyle(
-                    color: AppTheme.textSecondary, fontSize: 13),
+                style: TextStyle(
+                    color: c.textSecondary, fontSize: 13),
               );
             },
           ),
-          const SizedBox(width: 8),
+          SizedBox(width: 8),
           IconButton(
-            icon: const Icon(Icons.chevron_right_rounded,
-                size: 20, color: AppTheme.textSecondary),
+            icon: Icon(Icons.chevron_right_rounded,
+                size: 20, color: c.textSecondary),
             onPressed: () {
               final cur = _viewerController.pageNumber ?? 0;
               _viewerController.goToPage(pageNumber: cur + 1);
@@ -265,8 +270,8 @@ class _ViewerScreenState extends State<ViewerScreen> {
             tooltip: 'Next page',
           ),
           IconButton(
-            icon: const Icon(Icons.last_page_rounded,
-                size: 20, color: AppTheme.textSecondary),
+            icon: Icon(Icons.last_page_rounded,
+                size: 20, color: c.textSecondary),
             onPressed: () {
               _viewerController.useDocument((doc) {
                 _viewerController.goToPage(

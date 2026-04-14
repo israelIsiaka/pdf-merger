@@ -58,6 +58,7 @@ class _PdfToWordScreenState extends State<PdfToWordScreen> {
   }
 
   Future<void> _convert() async {
+      final c = AppColors.of(context);
     if (_inputPath == null || _outputCtrl.text.isEmpty) return;
     setState(() => _loading = true);
     try {
@@ -70,14 +71,14 @@ class _PdfToWordScreenState extends State<PdfToWordScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text('Converted: ${p.basename(_outputCtrl.text)}'),
-          backgroundColor: AppTheme.success,
+          backgroundColor: c.success,
         ));
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text('Error: $e'),
-          backgroundColor: AppTheme.error,
+          backgroundColor: c.error,
         ));
       }
     } finally {
@@ -87,6 +88,7 @@ class _PdfToWordScreenState extends State<PdfToWordScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return AppScaffold(
       title: 'PDF to Word',
       body: ProgressOverlay(
@@ -105,7 +107,7 @@ class _PdfToWordScreenState extends State<PdfToWordScreen> {
                   border:
                       Border.all(color: const Color(0xFFef4444).withAlpha(40)),
                 ),
-                child: const Row(
+                child: Row(
                   children: [
                     Icon(Icons.info_outline_rounded,
                         size: 16, color: Color(0xFFef4444)),
@@ -120,7 +122,7 @@ class _PdfToWordScreenState extends State<PdfToWordScreen> {
                   ],
                 ),
               ),
-              const SizedBox(height: 20),
+              SizedBox(height: 20),
               FileDropZone(
                 onFilesDropped: (paths) {
                   final pdfs =
@@ -133,70 +135,70 @@ class _PdfToWordScreenState extends State<PdfToWordScreen> {
                 label: 'Drop PDF here',
                 sublabel: 'or click to browse',
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: 16),
               ElevatedButton.icon(
                 onPressed: _pickInput,
-                icon: const Icon(Icons.folder_open_rounded, size: 18),
-                label: const Text('Choose PDF'),
+                icon: Icon(Icons.folder_open_rounded, size: 18),
+                label: Text('Choose PDF'),
               ),
               if (_inputPath != null) ...[
-                const SizedBox(height: 12),
+                SizedBox(height: 12),
                 Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: AppTheme.cardBackground,
+                    color: c.cardBackground,
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppTheme.cardBorder),
+                    border: Border.all(color: c.cardBorder),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.picture_as_pdf_rounded,
+                      Icon(Icons.picture_as_pdf_rounded,
                           color: Color(0xFFef4444), size: 20),
-                      const SizedBox(width: 10),
+                      SizedBox(width: 10),
                       Expanded(
                         child: Text(
                           p.basename(_inputPath!),
-                          style: const TextStyle(
-                              color: AppTheme.textPrimary, fontSize: 13),
+                          style: TextStyle(
+                              color: c.textPrimary, fontSize: 13),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
                       Text(
                         _fileSize(_inputPath!),
-                        style: const TextStyle(
-                            color: AppTheme.textSecondary, fontSize: 11),
+                        style: TextStyle(
+                            color: c.textSecondary, fontSize: 11),
                       ),
                     ],
                   ),
                 ),
               ],
-              const SizedBox(height: 24),
-              const Text('Output File',
+              SizedBox(height: 24),
+              Text('Output File',
                   style: TextStyle(
-                      color: AppTheme.textPrimary,
+                      color: c.textPrimary,
                       fontWeight: FontWeight.w600,
                       fontSize: 14)),
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
               Row(
                 children: [
                   Expanded(
                     child: TextField(
                       controller: _outputCtrl,
-                      style: const TextStyle(
-                          color: AppTheme.textPrimary, fontSize: 13),
-                      decoration: const InputDecoration(
+                      style: TextStyle(
+                          color: c.textPrimary, fontSize: 13),
+                      decoration: InputDecoration(
                         hintText: 'Choose output path...',
                         prefixIcon: Icon(Icons.save_outlined,
-                            size: 18, color: AppTheme.textSecondary),
+                            size: 18, color: c.textSecondary),
                       ),
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  SizedBox(width: 10),
                   OutlinedButton(
-                      onPressed: _browseOutput, child: const Text('Browse')),
+                      onPressed: _browseOutput, child: Text('Browse')),
                 ],
               ),
-              const SizedBox(height: 28),
+              SizedBox(height: 28),
               SizedBox(
                 width: double.infinity,
                 height: 48,
@@ -205,12 +207,12 @@ class _PdfToWordScreenState extends State<PdfToWordScreen> {
                       _inputPath != null && _outputCtrl.text.isNotEmpty
                           ? _convert
                           : null,
-                  icon: const Icon(Icons.transform_rounded),
-                  label: const Text('Convert to Word'),
+                  icon: Icon(Icons.transform_rounded),
+                  label: Text('Convert to Word'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFef4444),
-                    disabledBackgroundColor: AppTheme.cardBorder,
-                    disabledForegroundColor: AppTheme.textSecondary,
+                    backgroundColor: Color(0xFFef4444),
+                    disabledBackgroundColor: c.cardBorder,
+                    disabledForegroundColor: c.textSecondary,
                   ),
                 ),
               ),

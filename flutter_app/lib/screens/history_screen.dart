@@ -33,22 +33,23 @@ class _HistoryScreenState extends State<HistoryScreen> {
   }
 
   Future<void> _clear() async {
+      final c = AppColors.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: AppTheme.cardBackground,
-        title: const Text('Clear History',
-            style: TextStyle(color: AppTheme.textPrimary)),
-        content: const Text('Remove all history entries?',
-            style: TextStyle(color: AppTheme.textSecondary)),
+        backgroundColor: c.cardBackground,
+        title: Text('Clear History',
+            style: TextStyle(color: c.textPrimary)),
+        content: Text('Remove all history entries?',
+            style: TextStyle(color: c.textSecondary)),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel')),
+              child: Text('Cancel')),
           TextButton(
               onPressed: () => Navigator.pop(context, true),
-              child: const Text('Clear',
-                  style: TextStyle(color: AppTheme.error))),
+              child: Text('Clear',
+                  style: TextStyle(color: c.error))),
         ],
       ),
     );
@@ -75,32 +76,33 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return AppScaffold(
       title: 'History',
       actions: [
         if (_entries.isNotEmpty)
           IconButton(
-            icon: const Icon(Icons.delete_sweep_rounded,
-                color: AppTheme.textSecondary),
+            icon: Icon(Icons.delete_sweep_rounded,
+                color: c.textSecondary),
             tooltip: 'Clear all',
             onPressed: _clear,
           ),
         IconButton(
-          icon: const Icon(Icons.refresh_rounded,
-              color: AppTheme.textSecondary),
+          icon: Icon(Icons.refresh_rounded,
+              color: c.textSecondary),
           tooltip: 'Refresh',
           onPressed: _load,
         ),
       ],
       body: _loading
-          ? const Center(child: CircularProgressIndicator())
+          ? Center(child: CircularProgressIndicator())
           : _entries.isEmpty
               ? _buildEmpty()
               : ListView.separated(
-                  padding: const EdgeInsets.all(20),
+                  padding: EdgeInsets.all(20),
                   itemCount: _entries.length,
                   separatorBuilder: (_, __) =>
-                      const SizedBox(height: 8),
+                      SizedBox(height: 8),
                   itemBuilder: (context, index) =>
                       _buildCard(_entries[index]),
                 ),
@@ -108,31 +110,33 @@ class _HistoryScreenState extends State<HistoryScreen> {
   }
 
   Widget _buildEmpty() {
+      final c = AppColors.of(context);
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(Icons.history_rounded,
-              size: 56, color: AppTheme.textSecondary.withAlpha(80)),
-          const SizedBox(height: 16),
-          const Text('No history yet',
-              style: TextStyle(color: AppTheme.textSecondary, fontSize: 16)),
-          const SizedBox(height: 6),
-          const Text('Processed files will appear here',
-              style: TextStyle(color: AppTheme.textSecondary, fontSize: 13)),
+              size: 56, color: c.textSecondary.withAlpha(80)),
+          SizedBox(height: 16),
+          Text('No history yet',
+              style: TextStyle(color: c.textSecondary, fontSize: 16)),
+          SizedBox(height: 6),
+          Text('Processed files will appear here',
+              style: TextStyle(color: c.textSecondary, fontSize: 13)),
         ],
       ),
     );
   }
 
   Widget _buildCard(HistoryEntry entry) {
+      final c = AppColors.of(context);
     final exists = _fileExists(entry.outputPath);
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppTheme.cardBackground,
+        color: c.cardBackground,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppTheme.cardBorder),
+        border: Border.all(color: c.cardBorder),
       ),
       child: Row(
         children: [
@@ -140,44 +144,44 @@ class _HistoryScreenState extends State<HistoryScreen> {
             width: 36,
             height: 36,
             decoration: BoxDecoration(
-              color: AppTheme.primary.withAlpha(25),
+              color: c.primary.withAlpha(25),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: const Icon(Icons.picture_as_pdf_rounded,
-                size: 18, color: AppTheme.primary),
+            child: Icon(Icons.picture_as_pdf_rounded,
+                size: 18, color: c.primary),
           ),
-          const SizedBox(width: 12),
+          SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(entry.operation,
-                    style: const TextStyle(
-                        color: AppTheme.textPrimary,
+                    style: TextStyle(
+                        color: c.textPrimary,
                         fontSize: 13,
                         fontWeight: FontWeight.w600)),
-                const SizedBox(height: 2),
+                SizedBox(height: 2),
                 Text(
                   p.basename(entry.outputPath),
                   style: TextStyle(
                       color: exists
-                          ? AppTheme.textSecondary
-                          : AppTheme.error.withAlpha(180),
+                          ? c.textSecondary
+                          : c.error.withAlpha(180),
                       fontSize: 12),
                   overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 2),
+                SizedBox(height: 2),
                 Text(_formatDate(entry.timestamp),
-                    style: const TextStyle(
-                        color: AppTheme.textSecondary, fontSize: 11)),
+                    style: TextStyle(
+                        color: c.textSecondary, fontSize: 11)),
               ],
             ),
           ),
           if (!exists)
-            const Tooltip(
+            Tooltip(
               message: 'File no longer exists',
               child: Icon(Icons.warning_amber_rounded,
-                  size: 16, color: AppTheme.warning),
+                  size: 16, color: c.warning),
             ),
         ],
       ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import '../theme/theme_notifier.dart';
 import '../widgets/constellation_background.dart';
 import '../widgets/tool_card.dart';
 import 'merge_screen.dart';
@@ -75,7 +76,7 @@ class HomeScreen extends StatelessWidget {
     ),
     _ToolDef(
       name: 'Watermark',
-      description: 'Add text watermarks to your PDF pages',
+      description: 'Add text or image watermarks to your PDF pages',
       symbol: 'W',
       color: const Color(0xFF06b6d4),
       screenBuilder: () => const WatermarkScreen(),
@@ -147,8 +148,9 @@ class HomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: c.background,
       body: Stack(
         children: [
           const ConstellationBackground(),
@@ -156,35 +158,61 @@ class HomeScreen extends StatelessWidget {
             child: Column(
               children: [
                 const SizedBox(height: 40),
-                // Header
-                const Text(
-                  'PDF Merger',
-                  style: TextStyle(
-                    color: AppTheme.textPrimary,
-                    fontSize: 36,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Professional PDF Processing Suite',
-                  style: TextStyle(
-                    color: AppTheme.textSecondary,
-                    fontSize: 16,
-                    letterSpacing: 0.3,
-                  ),
+                // Header + theme toggle
+                Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Column(
+                      children: [
+                        Text(
+                          'PDF Merger',
+                          style: TextStyle(
+                            color: c.textPrimary,
+                            fontSize: 36,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Professional PDF Processing Suite',
+                          style: TextStyle(
+                            color: c.textSecondary,
+                            fontSize: 16,
+                            letterSpacing: 0.3,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Positioned(
+                      right: 24,
+                      top: 0,
+                      child: ValueListenableBuilder<ThemeMode>(
+                        valueListenable: themeNotifier,
+                        builder: (_, mode, _) => IconButton(
+                          icon: Icon(
+                            mode == ThemeMode.dark
+                                ? Icons.light_mode_rounded
+                                : Icons.dark_mode_rounded,
+                          ),
+                          color: c.textSecondary,
+                          tooltip: mode == ThemeMode.dark
+                              ? 'Switch to light mode'
+                              : 'Switch to dark mode',
+                          onPressed: themeNotifier.toggle,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 20),
                 // Privacy badge
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   decoration: BoxDecoration(
                     color: const Color(0xFF22c55e).withAlpha(20),
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                        color: const Color(0xFF22c55e).withAlpha(60)),
+                    border: Border.all(color: const Color(0xFF22c55e).withAlpha(60)),
                   ),
                   child: const Row(
                     mainAxisSize: MainAxisSize.min,
@@ -205,7 +233,6 @@ class HomeScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 36),
-                // Tool grid
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 32),

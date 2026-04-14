@@ -13,7 +13,7 @@ class ContributorsScreen extends StatelessWidget {
       role: 'Creator & Lead Developer',
       github: 'https://github.com/israelIsiaka',
       linkedIn: 'https://www.linkedin.com/in/isrealisiaka/',
-      description: 'A developer that likes to solve problems.',
+      description: 'Software engineer.',
     ),
     Contributor(
       name: 'Precious Osokogu',
@@ -28,6 +28,7 @@ class ContributorsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return AppScaffold(
       title: 'Contributors',
       body: SingleChildScrollView(
@@ -38,53 +39,53 @@ class ContributorsScreen extends StatelessWidget {
             // Header
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(24),
+              padding: EdgeInsets.all(24),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
-                    const Color(0xFF8b5cf6).withAlpha(30),
-                    const Color(0xFF4f7ef7).withAlpha(15),
+                    Color(0xFF8b5cf6).withAlpha(30),
+                    Color(0xFF4f7ef7).withAlpha(15),
                   ],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                    color: const Color(0xFF8b5cf6).withAlpha(50)),
+                    color: Color(0xFF8b5cf6).withAlpha(50)),
               ),
               child: Column(
                 children: [
-                  const Icon(Icons.people_alt_rounded,
+                  Icon(Icons.people_alt_rounded,
                       size: 40, color: Color(0xFF8b5cf6)),
-                  const SizedBox(height: 12),
-                  const Text(
+                  SizedBox(height: 12),
+                  Text(
                     'Built with care',
                     style: TextStyle(
-                      color: AppTheme.textPrimary,
+                      color: c.textPrimary,
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  const SizedBox(height: 6),
-                  const Text(
+                  SizedBox(height: 6),
+                  Text(
                     'PDF Merger is an open-source project. '
                     'Every contribution matters.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      color: AppTheme.textSecondary,
+                      color: c.textSecondary,
                       fontSize: 13,
                       height: 1.5,
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  SizedBox(height: 16),
                   OutlinedButton.icon(
                     onPressed: () => _launch(
                         'https://github.com/israelIsiaka/pdf-merger'),
-                    icon: const Icon(Icons.code_rounded, size: 16),
-                    label: const Text('View on GitHub'),
+                    icon: Icon(Icons.code_rounded, size: 16),
+                    label: Text('View on GitHub'),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFF8b5cf6),
-                      side: const BorderSide(
+                      foregroundColor: Color(0xFF8b5cf6),
+                      side: BorderSide(
                           color: Color(0xFF8b5cf6), width: 1),
                     ),
                   ),
@@ -92,36 +93,36 @@ class ContributorsScreen extends StatelessWidget {
               ),
             ),
 
-            const SizedBox(height: 28),
-            const Text('Team',
+            SizedBox(height: 28),
+            Text('Team',
                 style: TextStyle(
-                    color: AppTheme.textPrimary,
+                    color: c.textPrimary,
                     fontWeight: FontWeight.w600,
                     fontSize: 16)),
-            const SizedBox(height: 12),
+            SizedBox(height: 12),
 
-            ..._contributors.map((c) => Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: _ContributorCard(contributor: c),
+            ..._contributors.map((contrib) => Padding(
+                  padding: EdgeInsets.only(bottom: 12),
+                  child: _ContributorCard(contributor: contrib),
                 )),
 
-            const SizedBox(height: 28),
-            const Divider(),
-            const SizedBox(height: 20),
+            SizedBox(height: 28),
+            Divider(),
+            SizedBox(height: 20),
 
             // Want to contribute
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(20),
+              padding: EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: AppTheme.cardBackground,
+                color: c.cardBackground,
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: AppTheme.cardBorder),
+                border: Border.all(color: c.cardBorder),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Row(
+                  Row(
                     children: [
                       Icon(Icons.volunteer_activism_rounded,
                           size: 18, color: Color(0xFF22c55e)),
@@ -129,56 +130,56 @@ class ContributorsScreen extends StatelessWidget {
                       Text(
                         'Want to contribute?',
                         style: TextStyle(
-                          color: AppTheme.textPrimary,
+                          color: c.textPrimary,
                           fontWeight: FontWeight.w600,
                           fontSize: 14,
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
-                  const Text(
+                  SizedBox(height: 8),
+                  Text(
                     'PDF Merger welcomes contributions of all kinds — '
                     'bug fixes, new features, translations, or documentation improvements.',
                     style: TextStyle(
-                        color: AppTheme.textSecondary,
+                        color: c.textSecondary,
                         fontSize: 13,
                         height: 1.5),
                   ),
-                  const SizedBox(height: 12),
+                  SizedBox(height: 12),
                   TextButton.icon(
                     onPressed: () => _launch(
                         'https://github.com/israelIsiaka/pdf-merger/issues'),
-                    icon: const Icon(Icons.open_in_new_rounded, size: 14),
-                    label: const Text('Open an issue or pull request'),
+                    icon: Icon(Icons.open_in_new_rounded, size: 14),
+                    label: Text('Open an issue or pull request'),
                     style: TextButton.styleFrom(
-                        foregroundColor: const Color(0xFF22c55e)),
+                        foregroundColor: Color(0xFF22c55e)),
                   ),
                 ],
               ),
             ),
 
-            const SizedBox(height: 20),
+            SizedBox(height: 20),
 
             // License
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: AppTheme.cardBackground,
+                color: c.cardBackground,
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: AppTheme.cardBorder),
+                border: Border.all(color: c.cardBorder),
               ),
-              child: const Row(
+              child: Row(
                 children: [
                   Icon(Icons.gavel_rounded,
-                      size: 16, color: AppTheme.textSecondary),
+                      size: 16, color: c.textSecondary),
                   SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       'Released under the MIT License. Free for personal and commercial use.',
                       style: TextStyle(
-                          color: AppTheme.textSecondary,
+                          color: c.textSecondary,
                           fontSize: 12,
                           height: 1.4),
                     ),
@@ -200,16 +201,17 @@ class ContributorsScreen extends StatelessWidget {
 
 class _ContributorCard extends StatelessWidget {
   final Contributor contributor;
-  const _ContributorCard({required this.contributor});
+  _ContributorCard({required this.contributor});
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppTheme.cardBackground,
+        color: c.cardBackground,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppTheme.cardBorder),
+        border: Border.all(color: c.cardBorder),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -233,7 +235,7 @@ class _ContributorCard extends StatelessWidget {
                         .map((w) => w.isNotEmpty ? w[0] : '')
                         .take(2)
                         .join(),
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
                       fontSize: 16,
@@ -241,23 +243,23 @@ class _ContributorCard extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       contributor.name,
-                      style: const TextStyle(
-                        color: AppTheme.textPrimary,
+                      style: TextStyle(
+                        color: c.textPrimary,
                         fontWeight: FontWeight.w600,
                         fontSize: 14,
                       ),
                     ),
-                    const SizedBox(height: 2),
+                    SizedBox(height: 2),
                     Text(
                       contributor.role,
-                      style: const TextStyle(
+                      style: TextStyle(
                           color: Color(0xFF8b5cf6), fontSize: 12),
                     ),
                   ],
@@ -266,16 +268,16 @@ class _ContributorCard extends StatelessWidget {
             ],
           ),
           if (contributor.description != null) ...[
-            const SizedBox(height: 10),
+            SizedBox(height: 10),
             Text(
               contributor.description!,
-              style: const TextStyle(
-                  color: AppTheme.textSecondary,
+              style: TextStyle(
+                  color: c.textSecondary,
                   fontSize: 13,
                   height: 1.5),
             ),
           ],
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -331,13 +333,14 @@ class _LinkButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return OutlinedButton.icon(
       onPressed: () async {
         final uri = Uri.parse(url);
         if (await canLaunchUrl(uri)) await launchUrl(uri);
       },
       icon: Icon(icon, size: 14),
-      label: Text(label, style: const TextStyle(fontSize: 12)),
+      label: Text(label, style: TextStyle(fontSize: 12)),
       style: OutlinedButton.styleFrom(
         foregroundColor: color,
         side: BorderSide(color: color.withAlpha(80)),

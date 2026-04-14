@@ -116,10 +116,11 @@ class _CompressScreenState extends State<CompressScreen> {
   }
 
   void _snack(String msg, {required bool error}) {
+      final c = AppColors.of(context);
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(msg),
-      backgroundColor: error ? AppTheme.error : AppTheme.success,
+      backgroundColor: error ? c.error : c.success,
     ));
   }
 
@@ -131,6 +132,7 @@ class _CompressScreenState extends State<CompressScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     final saved = (_beforeBytes != null && _afterBytes != null)
         ? _beforeBytes! - _afterBytes!
         : null;
@@ -144,53 +146,53 @@ class _CompressScreenState extends State<CompressScreen> {
         visible: _loading,
         message: 'Compressing PDF...',
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(28),
+          padding: EdgeInsets.all(28),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Input
-              const Text('Input PDF',
+              Text('Input PDF',
                   style: TextStyle(
-                      color: AppTheme.textPrimary,
+                      color: c.textPrimary,
                       fontWeight: FontWeight.w600,
                       fontSize: 14)),
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
               Row(children: [
                 Expanded(
                   child: TextField(
                     controller: _inputCtrl,
                     readOnly: true,
-                    style: const TextStyle(
-                        color: AppTheme.textPrimary, fontSize: 13),
-                    decoration: const InputDecoration(
+                    style: TextStyle(
+                        color: c.textPrimary, fontSize: 13),
+                    decoration: InputDecoration(
                       hintText: 'Select PDF to compress...',
                       prefixIcon: Icon(Icons.picture_as_pdf_rounded,
-                          size: 18, color: AppTheme.textSecondary),
+                          size: 18, color: c.textSecondary),
                     ),
                   ),
                 ),
-                const SizedBox(width: 10),
+                SizedBox(width: 10),
                 CustomOutlinedButton(onPressed: _pickInput, label: 'Browse'),
               ]),
               if (_beforeBytes != null) ...[
-                const SizedBox(height: 8),
+                SizedBox(height: 8),
                 Text('File size: ${_fmt(_beforeBytes!)}',
-                    style: const TextStyle(
-                        color: AppTheme.textSecondary, fontSize: 12)),
+                    style: TextStyle(
+                        color: c.textSecondary, fontSize: 12)),
               ],
-              const SizedBox(height: 28),
+              SizedBox(height: 28),
 
               // Compression level
-              const Text('Compression Level',
+              Text('Compression Level',
                   style: TextStyle(
-                      color: AppTheme.textPrimary,
+                      color: c.textPrimary,
                       fontWeight: FontWeight.w600,
                       fontSize: 14)),
-              const SizedBox(height: 4),
+              SizedBox(height: 4),
               Text(_levels[_selectedLevel].description,
-                  style: const TextStyle(
-                      color: AppTheme.textSecondary, fontSize: 12)),
-              const SizedBox(height: 14),
+                  style: TextStyle(
+                      color: c.textSecondary, fontSize: 12)),
+              SizedBox(height: 14),
               Column(
                 children: List.generate(_levels.length, (i) {
                   final lvl = _levels[i];
@@ -198,18 +200,18 @@ class _CompressScreenState extends State<CompressScreen> {
                   return GestureDetector(
                     onTap: () => setState(() => _selectedLevel = i),
                     child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 150),
-                      margin: const EdgeInsets.only(bottom: 8),
-                      padding: const EdgeInsets.symmetric(
+                      duration: Duration(milliseconds: 150),
+                      margin: EdgeInsets.only(bottom: 8),
+                      padding: EdgeInsets.symmetric(
                           horizontal: 16, vertical: 12),
                       decoration: BoxDecoration(
                         color: selected
                             ? lvl.color.withAlpha(20)
-                            : AppTheme.cardBackground,
+                            : c.cardBackground,
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(
                           color:
-                              selected ? lvl.color : AppTheme.cardBorder,
+                              selected ? lvl.color : c.cardBorder,
                           width: selected ? 1.5 : 1,
                         ),
                       ),
@@ -224,17 +226,17 @@ class _CompressScreenState extends State<CompressScreen> {
                               border: Border.all(
                                   color: selected
                                       ? lvl.color
-                                      : AppTheme.textSecondary,
+                                      : c.textSecondary,
                                   width: 1.5),
                             ),
                           ),
-                          const SizedBox(width: 12),
+                          SizedBox(width: 12),
                           Expanded(
                             child: Text(lvl.label,
                                 style: TextStyle(
                                     color: selected
-                                        ? AppTheme.textPrimary
-                                        : AppTheme.textSecondary,
+                                        ? c.textPrimary
+                                        : c.textSecondary,
                                     fontWeight: selected
                                         ? FontWeight.w600
                                         : FontWeight.normal,
@@ -247,11 +249,11 @@ class _CompressScreenState extends State<CompressScreen> {
                               return Container(
                                 width: 6,
                                 height: 6 + bar * 3.0,
-                                margin: const EdgeInsets.only(left: 3),
+                                margin: EdgeInsets.only(left: 3),
                                 decoration: BoxDecoration(
                                   color: active
                                       ? lvl.color
-                                      : AppTheme.cardBorder,
+                                      : c.cardBorder,
                                   borderRadius: BorderRadius.circular(2),
                                 ),
                               );
@@ -264,56 +266,56 @@ class _CompressScreenState extends State<CompressScreen> {
                 }),
               ),
 
-              const SizedBox(height: 20),
-              const Text('Output File',
+              SizedBox(height: 20),
+              Text('Output File',
                   style: TextStyle(
-                      color: AppTheme.textPrimary,
+                      color: c.textPrimary,
                       fontWeight: FontWeight.w600,
                       fontSize: 14)),
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
               Row(children: [
                 Expanded(
                   child: TextField(
                     controller: _outputCtrl,
-                    style: const TextStyle(
-                        color: AppTheme.textPrimary, fontSize: 13),
-                    decoration: const InputDecoration(
+                    style: TextStyle(
+                        color: c.textPrimary, fontSize: 13),
+                    decoration: InputDecoration(
                       hintText: 'Output file path...',
                       prefixIcon: Icon(Icons.save_outlined,
-                          size: 18, color: AppTheme.textSecondary),
+                          size: 18, color: c.textSecondary),
                     ),
                   ),
                 ),
-                const SizedBox(width: 10),
+                SizedBox(width: 10),
                 CustomOutlinedButton(
                     onPressed: _browseOutput, label: 'Browse'),
               ]),
 
               if (_afterBytes != null && saved != null) ...[
-                const SizedBox(height: 20),
+                SizedBox(height: 20),
                 Container(
-                  padding: const EdgeInsets.all(16),
+                  padding: EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: AppTheme.success.withAlpha(18),
+                    color: c.success.withAlpha(18),
                     borderRadius: BorderRadius.circular(10),
                     border:
-                        Border.all(color: AppTheme.success.withAlpha(60)),
+                        Border.all(color: c.success.withAlpha(60)),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Compression Result',
+                      Text('Compression Result',
                           style: TextStyle(
-                              color: AppTheme.success,
+                              color: c.success,
                               fontWeight: FontWeight.w600,
                               fontSize: 13)),
-                      const SizedBox(height: 10),
+                      SizedBox(height: 10),
                       Row(
                         children: [
                           _statBox('Before', _fmt(_beforeBytes!)),
-                          const SizedBox(width: 12),
+                          SizedBox(width: 12),
                           _statBox('After', _fmt(_afterBytes!)),
-                          const SizedBox(width: 12),
+                          SizedBox(width: 12),
                           _statBox(
                               'Saved',
                               saved > 0
@@ -326,7 +328,7 @@ class _CompressScreenState extends State<CompressScreen> {
                 ),
               ],
 
-              const SizedBox(height: 28),
+              SizedBox(height: 28),
               SizedBox(
                 width: double.infinity,
                 height: 48,
@@ -343,24 +345,25 @@ class _CompressScreenState extends State<CompressScreen> {
   }
 
   Widget _statBox(String label, String value) {
+      final c = AppColors.of(context);
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.all(10),
+        padding: EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: AppTheme.cardBackground,
+          color: c.cardBackground,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: AppTheme.cardBorder),
+          border: Border.all(color: c.cardBorder),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(label,
-                style: const TextStyle(
-                    color: AppTheme.textSecondary, fontSize: 11)),
-            const SizedBox(height: 4),
+                style: TextStyle(
+                    color: c.textSecondary, fontSize: 11)),
+            SizedBox(height: 4),
             Text(value,
-                style: const TextStyle(
-                    color: AppTheme.textPrimary,
+                style: TextStyle(
+                    color: c.textPrimary,
                     fontSize: 13,
                     fontWeight: FontWeight.w500)),
           ],

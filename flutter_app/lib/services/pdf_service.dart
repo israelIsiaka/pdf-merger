@@ -84,17 +84,18 @@ class PdfService {
   }
 
   // ---------------------------------------------------------------------------
-  // Render first page as preview image (used by watermark / annotate screens)
+  // Render a page as preview image (used by watermark / annotate screens)
   // ---------------------------------------------------------------------------
   static Future<Uint8List?> renderPreview(String pdfPath,
-      {double targetWidth = 400}) async {
+      {double targetWidth = 400, int pageIndex = 0}) async {
     try {
       final doc = await rx.PdfDocument.openFile(pdfPath);
       if (doc.pages.isEmpty) {
         doc.dispose();
         return null;
       }
-      final page = doc.pages[0];
+      final idx = pageIndex.clamp(0, doc.pages.length - 1);
+      final page = doc.pages[idx];
       final scale = targetWidth / page.width;
       final image = await page.render(
         fullWidth: page.width * scale,
@@ -112,6 +113,20 @@ class PdfService {
       return bytes;
     } catch (_) {
       return null;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Get page count via pdfrx (no password needed for preview)
+  // ---------------------------------------------------------------------------
+  static Future<int> getPreviewPageCount(String pdfPath) async {
+    try {
+      final doc = await rx.PdfDocument.openFile(pdfPath);
+      final count = doc.pages.length;
+      doc.dispose();
+      return count;
+    } catch (_) {
+      return 1;
     }
   }
 
@@ -209,6 +224,63 @@ class PdfService {
       default:
         return ph / 2;
     }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Image watermark
+  // ---------------------------------------------------------------------------
+  static Future<void> addImageWatermark(
+    String inputPath,
+    String outputPath,
+    Uint8List imageBytes, {
+    double opacity = 0.3,
+    double rotation = -45,
+    String position = 'center',
+    String frequency = 'all',
+    double scale = 0.3,
+  }) async {
+    final bytes = await File(inputPath).readAsBytes();
+    final doc = PdfDocument(inputBytes: bytes);
+    final bitmap = PdfBitmap(imageBytes);
+    final pageCount = doc.pages.count;
+    final pageIndices = _resolveFrequency(frequency, pageCount);
+
+    for (final idx in pageIndices) {
+      final page = doc.pages[idx];
+      final graphics = page.graphics;
+      final pw = page.size.width;
+      final ph = page.size.height;
+      final imgW = bitmap.width * scale;
+      final imgH = bitmap.height * scale;
+
+      final ox = _resolvePositionX(position, pw, ph, Size(imgW, imgH));
+      final oy = _resolvePositionY(position, pw, ph, Size(imgW, imgH));
+
+      graphics.save();
+      graphics.setTransparency(opacity);
+      if (position == 'grid') {
+        for (double x = -pw; x < pw * 2; x += imgW + 60) {
+          for (double y = -ph; y < ph * 2; y += imgH + 60) {
+            graphics.translateTransform(x + pw / 2, y + ph / 2);
+            graphics.rotateTransform(rotation);
+            graphics.drawImage(
+                bitmap, Rect.fromLTWH(-imgW / 2, -imgH / 2, imgW, imgH));
+            graphics.rotateTransform(-rotation);
+            graphics.translateTransform(-(x + pw / 2), -(y + ph / 2));
+          }
+        }
+      } else {
+        graphics.translateTransform(ox, oy);
+        graphics.rotateTransform(rotation);
+        graphics.drawImage(
+            bitmap, Rect.fromLTWH(-imgW / 2, -imgH / 2, imgW, imgH));
+      }
+      graphics.restore();
+    }
+
+    final outBytes = doc.saveSync();
+    doc.dispose();
+    await File(outputPath).writeAsBytes(outBytes);
   }
 
   static List<int> _resolveFrequency(String frequency, int pageCount) {

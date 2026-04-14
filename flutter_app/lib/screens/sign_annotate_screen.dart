@@ -12,13 +12,12 @@ import '../services/pdf_service.dart';
 import '../services/history_service.dart';
 import '../models/history_entry.dart';
 
-// Each draggable field handle definition
 class _Handle {
-  final String key;   // N, T, D, C, S
+  final String key;
   final String label;
   final Color color;
-  double x; // fraction 0..1
-  double y; // fraction 0..1
+  double x;
+  double y;
   _Handle(this.key, this.label, this.color, this.x, this.y);
 }
 
@@ -44,8 +43,9 @@ class _SignAnnotateScreenState extends State<SignAnnotateScreen> {
 
   Uint8List? _previewImage;
   bool _loadingPreview = false;
+  int _currentPage = 0;
+  int _totalPages = 1;
 
-  // One handle per field in the same order used when building textItems
   final List<_Handle> _handles = [
     _Handle('N', 'Name',   const Color(0xFF1a73e8), 0.12, 0.78),
     _Handle('T', 'Title',  const Color(0xFF0f9d58), 0.12, 0.84),
@@ -83,24 +83,35 @@ class _SignAnnotateScreenState extends State<SignAnnotateScreen> {
     );
     if (result != null && result.files.first.path != null) {
       final path = result.files.first.path!;
+      final total = await PdfService.getPreviewPageCount(path);
       setState(() {
         _inputPath = path;
         _previewImage = null;
+        _currentPage = 0;
+        _totalPages = total;
       });
       _suggestOutput();
-      _loadPreview(path);
+      _loadPreview(path, 0);
     }
   }
 
-  Future<void> _loadPreview(String path) async {
+  Future<void> _loadPreview(String path, int page) async {
     setState(() => _loadingPreview = true);
-    final bytes = await PdfService.renderPreview(path, targetWidth: 500);
+    final bytes = await PdfService.renderPreview(path,
+        targetWidth: 500, pageIndex: page);
     if (mounted) {
       setState(() {
         _previewImage = bytes;
         _loadingPreview = false;
       });
     }
+  }
+
+  void _goToPage(int page) {
+    if (_inputPath == null) return;
+    final clamped = page.clamp(0, _totalPages - 1);
+    setState(() => _currentPage = clamped);
+    _loadPreview(_inputPath!, clamped);
   }
 
   void _suggestOutput() async {
@@ -135,6 +146,7 @@ class _SignAnnotateScreenState extends State<SignAnnotateScreen> {
   }
 
   Future<void> _apply() async {
+      final c = AppColors.of(context);
     if (_inputPath == null || _outputCtrl.text.isEmpty) return;
 
     final controllers = [_nameCtrl, _titleCtrl, _dateCtrl, _customCtrl];
@@ -178,14 +190,14 @@ class _SignAnnotateScreenState extends State<SignAnnotateScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text('Saved: ${p.basename(_outputCtrl.text)}'),
-          backgroundColor: AppTheme.success,
+          backgroundColor: c.success,
         ));
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text('Error: $e'),
-          backgroundColor: AppTheme.error,
+          backgroundColor: c.error,
         ));
       }
     } finally {
@@ -195,6 +207,7 @@ class _SignAnnotateScreenState extends State<SignAnnotateScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return AppScaffold(
       title: 'Sign / Annotate',
       body: ProgressOverlay(
@@ -212,74 +225,87 @@ class _SignAnnotateScreenState extends State<SignAnnotateScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     FileDropZone(
-                      onFilesDropped: (paths) {
-                        final pdfs = paths.where((p) => p.toLowerCase().endsWith('.pdf'));
+                      onFilesDropped: (paths) async {
+                        final pdfs = paths
+                            .where((p) => p.toLowerCase().endsWith('.pdf'));
                         if (pdfs.isNotEmpty) {
+                          final path = pdfs.first;
+                          final total =
+                              await PdfService.getPreviewPageCount(path);
                           setState(() {
-                            _inputPath = pdfs.first;
+                            _inputPath = path;
                             _previewImage = null;
+                            _currentPage = 0;
+                            _totalPages = total;
                           });
                           _suggestOutput();
-                          _loadPreview(pdfs.first);
+                          _loadPreview(path, 0);
                         }
                       },
                       label: 'Drop PDF here',
                       sublabel: 'or click to browse',
                     ),
-                    const SizedBox(height: 12),
+                    SizedBox(height: 12),
                     ElevatedButton.icon(
                       onPressed: _pickInput,
-                      icon: const Icon(Icons.folder_open_rounded, size: 18),
-                      label: const Text('Choose PDF'),
+                      icon: Icon(Icons.folder_open_rounded, size: 18),
+                      label: Text('Choose PDF'),
                       style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFf97316)),
+                          backgroundColor: Color(0xFFf97316)),
                     ),
                     if (_inputPath != null) ...[
-                      const SizedBox(height: 6),
+                      SizedBox(height: 6),
                       Text(p.basename(_inputPath!),
-                          style: const TextStyle(
-                              color: AppTheme.textSecondary, fontSize: 12)),
+                          style: TextStyle(
+                              color: c.textSecondary, fontSize: 12)),
                     ],
-                    const SizedBox(height: 20),
-                    const Text('Text Fields',
+                    SizedBox(height: 20),
+                    Text('Text Fields',
                         style: TextStyle(
-                            color: AppTheme.textPrimary,
+                            color: c.textPrimary,
                             fontWeight: FontWeight.w600,
                             fontSize: 14)),
-                    const SizedBox(height: 4),
-                    const Text('Drag the coloured handles on the preview to reposition each field.',
-                        style: TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
-                    const SizedBox(height: 12),
-                    _buildField(_nameCtrl,   'Name',        Icons.person_outline_rounded,   _handles[0]),
-                    const SizedBox(height: 10),
-                    _buildField(_titleCtrl,  'Title',       Icons.work_outline_rounded,     _handles[1]),
-                    const SizedBox(height: 10),
-                    _buildField(_dateCtrl,   'Date',        Icons.calendar_today_rounded,   _handles[2]),
-                    const SizedBox(height: 10),
-                    _buildField(_customCtrl, 'Custom text', Icons.edit_note_rounded,        _handles[3]),
-                    const SizedBox(height: 20),
-                    const Text('Signature Image (optional)',
+                    SizedBox(height: 4),
+                    Text(
+                        'Drag the coloured handles on the preview to reposition.',
                         style: TextStyle(
-                            color: AppTheme.textPrimary,
+                            color: c.textSecondary, fontSize: 12)),
+                    SizedBox(height: 12),
+                    _buildField(_nameCtrl, 'Name',
+                        Icons.person_outline_rounded, _handles[0]),
+                    SizedBox(height: 10),
+                    _buildField(_titleCtrl, 'Title',
+                        Icons.work_outline_rounded, _handles[1]),
+                    SizedBox(height: 10),
+                    _buildField(_dateCtrl, 'Date',
+                        Icons.calendar_today_rounded, _handles[2]),
+                    SizedBox(height: 10),
+                    _buildField(_customCtrl, 'Custom text',
+                        Icons.edit_note_rounded, _handles[3]),
+                    SizedBox(height: 20),
+                    Text('Signature Image (optional)',
+                        style: TextStyle(
+                            color: c.textPrimary,
                             fontWeight: FontWeight.w600,
                             fontSize: 14)),
-                    const SizedBox(height: 8),
+                    SizedBox(height: 8),
                     Row(children: [
                       OutlinedButton.icon(
                         onPressed: _pickSignature,
-                        icon: const Icon(Icons.draw_rounded, size: 18),
-                        label: const Text('Choose Image'),
+                        icon: Icon(Icons.draw_rounded, size: 18),
+                        label: Text('Choose Image'),
                       ),
                       if (_sigImagePath != null) ...[
-                        const SizedBox(width: 12),
+                        SizedBox(width: 12),
                         Expanded(
                           child: Text(p.basename(_sigImagePath!),
-                              style: const TextStyle(color: AppTheme.success, fontSize: 12),
+                              style: TextStyle(
+                                  color: c.success, fontSize: 12),
                               overflow: TextOverflow.ellipsis),
                         ),
                         IconButton(
-                          icon: const Icon(Icons.close_rounded,
-                              size: 16, color: AppTheme.textSecondary),
+                          icon: Icon(Icons.close_rounded,
+                              size: 16, color: c.textSecondary),
                           onPressed: () => setState(() {
                             _sigImagePath = null;
                             _sigBytes = null;
@@ -287,85 +313,106 @@ class _SignAnnotateScreenState extends State<SignAnnotateScreen> {
                         ),
                       ],
                     ]),
-                    const SizedBox(height: 20),
+                    SizedBox(height: 20),
                     Row(children: [
-                      Expanded(child: Column(
+                      Expanded(
+                          child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Font Size',
-                              style: TextStyle(color: AppTheme.textPrimary,
-                                  fontWeight: FontWeight.w600, fontSize: 14)),
-                          const SizedBox(height: 4),
+                          Text('Font Size',
+                              style: TextStyle(
+                                  color: c.textPrimary,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 14)),
+                          SizedBox(height: 4),
                           DropdownButton<int>(
                             value: _fontSize,
-                            dropdownColor: AppTheme.cardBackground,
+                            dropdownColor: c.cardBackground,
                             isExpanded: true,
-                            underline: Container(height: 1, color: AppTheme.cardBorder),
-                            style: const TextStyle(color: AppTheme.textPrimary, fontSize: 13),
+                            underline: Container(
+                                height: 1, color: c.cardBorder),
+                            style: TextStyle(
+                                color: c.textPrimary, fontSize: 13),
                             items: [8, 10, 12, 14, 16, 18, 20, 24]
-                                .map((s) => DropdownMenuItem(value: s, child: Text('$s pt')))
+                                .map((s) => DropdownMenuItem(
+                                    value: s, child: Text('$s pt')))
                                 .toList(),
-                            onChanged: (v) => setState(() => _fontSize = v ?? 12),
+                            onChanged: (v) =>
+                                setState(() => _fontSize = v ?? 12),
                           ),
                         ],
                       )),
-                      const SizedBox(width: 16),
-                      Expanded(child: Column(
+                      SizedBox(width: 16),
+                      Expanded(
+                          child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Apply To',
-                              style: TextStyle(color: AppTheme.textPrimary,
-                                  fontWeight: FontWeight.w600, fontSize: 14)),
-                          const SizedBox(height: 4),
+                          Text('Apply To',
+                              style: TextStyle(
+                                  color: c.textPrimary,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 14)),
+                          SizedBox(height: 4),
                           DropdownButton<String>(
                             value: _frequency,
-                            dropdownColor: AppTheme.cardBackground,
+                            dropdownColor: c.cardBackground,
                             isExpanded: true,
-                            underline: Container(height: 1, color: AppTheme.cardBorder),
-                            style: const TextStyle(color: AppTheme.textPrimary, fontSize: 13),
+                            underline: Container(
+                                height: 1, color: c.cardBorder),
+                            style: TextStyle(
+                                color: c.textPrimary, fontSize: 13),
                             items: _frequencies
                                 .map((f) => DropdownMenuItem(
                                     value: f,
-                                    child: Text(f[0].toUpperCase() + f.substring(1))))
+                                    child: Text(f[0].toUpperCase() +
+                                        f.substring(1))))
                                 .toList(),
-                            onChanged: (v) => setState(() => _frequency = v ?? 'first'),
+                            onChanged: (v) =>
+                                setState(() => _frequency = v ?? 'first'),
                           ),
                         ],
                       )),
                     ]),
-                    const SizedBox(height: 20),
-                    const Text('Output File',
-                        style: TextStyle(color: AppTheme.textPrimary,
-                            fontWeight: FontWeight.w600, fontSize: 14)),
-                    const SizedBox(height: 8),
+                    SizedBox(height: 20),
+                    Text('Output File',
+                        style: TextStyle(
+                            color: c.textPrimary,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14)),
+                    SizedBox(height: 8),
                     Row(children: [
                       Expanded(
                         child: TextField(
                           controller: _outputCtrl,
-                          style: const TextStyle(color: AppTheme.textPrimary, fontSize: 13),
-                          decoration: const InputDecoration(
+                          style: TextStyle(
+                              color: c.textPrimary, fontSize: 13),
+                          decoration: InputDecoration(
                             hintText: 'Choose output path...',
                             prefixIcon: Icon(Icons.save_outlined,
-                                size: 18, color: AppTheme.textSecondary),
+                                size: 18, color: c.textSecondary),
                           ),
                         ),
                       ),
-                      const SizedBox(width: 10),
-                      OutlinedButton(onPressed: _browseOutput, child: const Text('Browse')),
+                      SizedBox(width: 10),
+                      OutlinedButton(
+                          onPressed: _browseOutput,
+                          child: Text('Browse')),
                     ]),
-                    const SizedBox(height: 28),
+                    SizedBox(height: 28),
                     SizedBox(
                       width: double.infinity,
                       height: 48,
                       child: ElevatedButton.icon(
-                        onPressed: _inputPath != null && _outputCtrl.text.isNotEmpty
-                            ? _apply : null,
-                        icon: const Icon(Icons.draw_rounded),
-                        label: const Text('Apply Signature / Annotations'),
+                        onPressed:
+                            _inputPath != null && _outputCtrl.text.isNotEmpty
+                                ? _apply
+                                : null,
+                        icon: Icon(Icons.draw_rounded),
+                        label: Text('Apply Signature / Annotations'),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFf97316),
-                          disabledBackgroundColor: AppTheme.cardBorder,
-                          disabledForegroundColor: AppTheme.textSecondary,
+                          backgroundColor: Color(0xFFf97316),
+                          disabledBackgroundColor: c.cardBorder,
+                          disabledForegroundColor: c.textSecondary,
                         ),
                       ),
                     ),
@@ -374,10 +421,9 @@ class _SignAnnotateScreenState extends State<SignAnnotateScreen> {
               ),
             ),
 
-            // Divider
-            Container(width: 1, color: AppTheme.cardBorder),
+            Container(width: 1, color: c.cardBorder),
 
-            // Right: preview canvas
+            // Right: preview
             Expanded(
               flex: 4,
               child: _buildPreviewPanel(),
@@ -390,20 +436,24 @@ class _SignAnnotateScreenState extends State<SignAnnotateScreen> {
 
   Widget _buildField(TextEditingController ctrl, String label,
       IconData icon, _Handle handle) {
+    final c = AppColors.of(context);
     return Row(children: [
-      // Colour dot matching the handle colour
       Container(
-        width: 10, height: 10,
-        margin: const EdgeInsets.only(right: 8),
-        decoration: BoxDecoration(color: handle.color, shape: BoxShape.circle),
+        width: 10,
+        height: 10,
+        margin: EdgeInsets.only(right: 8),
+        decoration:
+            BoxDecoration(color: handle.color, shape: BoxShape.circle),
       ),
       Expanded(
         child: TextField(
           controller: ctrl,
-          style: const TextStyle(color: AppTheme.textPrimary, fontSize: 13),
+          style:
+              TextStyle(color: c.textPrimary, fontSize: 13),
           decoration: InputDecoration(
             labelText: label,
-            prefixIcon: Icon(icon, size: 18, color: AppTheme.textSecondary),
+            prefixIcon:
+                Icon(icon, size: 18, color: c.textSecondary),
           ),
           onChanged: (_) => setState(() {}),
         ),
@@ -412,25 +462,62 @@ class _SignAnnotateScreenState extends State<SignAnnotateScreen> {
   }
 
   Widget _buildPreviewPanel() {
+      final c = AppColors.of(context);
     return Container(
-      color: const Color(0xFF060a12),
+      color: Color(0xFF060a12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Header with page navigation
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-            decoration: const BoxDecoration(
-              border: Border(bottom: BorderSide(color: AppTheme.cardBorder)),
+            padding:
+                EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: BoxDecoration(
+              border:
+                  Border(bottom: BorderSide(color: c.cardBorder)),
             ),
-            child: const Row(
+            child: Row(
               children: [
-                Icon(Icons.preview_rounded, size: 16, color: AppTheme.textSecondary),
+                Icon(Icons.preview_rounded,
+                    size: 16, color: c.textSecondary),
                 SizedBox(width: 8),
-                Text('Preview — drag handles to reposition',
-                    style: TextStyle(
-                        color: AppTheme.textSecondary,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500)),
+                Expanded(
+                  child: Text('Preview — drag handles to reposition',
+                      style: TextStyle(
+                          color: c.textSecondary,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500)),
+                ),
+                if (_totalPages > 1) ...[
+                  IconButton(
+                    icon: Icon(Icons.chevron_left_rounded, size: 20),
+                    color: _currentPage > 0
+                        ? c.textPrimary
+                        : c.textSecondary,
+                    padding: EdgeInsets.zero,
+                    constraints: BoxConstraints(),
+                    onPressed:
+                        _currentPage > 0 ? () => _goToPage(_currentPage - 1) : null,
+                  ),
+                  SizedBox(width: 6),
+                  Text('${_currentPage + 1} / $_totalPages',
+                      style: TextStyle(
+                          color: c.textPrimary,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500)),
+                  SizedBox(width: 6),
+                  IconButton(
+                    icon: Icon(Icons.chevron_right_rounded, size: 20),
+                    color: _currentPage < _totalPages - 1
+                        ? c.textPrimary
+                        : c.textSecondary,
+                    padding: EdgeInsets.zero,
+                    constraints: BoxConstraints(),
+                    onPressed: _currentPage < _totalPages - 1
+                        ? () => _goToPage(_currentPage + 1)
+                        : null,
+                  ),
+                ],
               ],
             ),
           ),
@@ -438,54 +525,66 @@ class _SignAnnotateScreenState extends State<SignAnnotateScreen> {
             child: _previewImage == null
                 ? Center(
                     child: _loadingPreview
-                        ? const CircularProgressIndicator()
+                        ? CircularProgressIndicator()
                         : Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(Icons.picture_as_pdf_rounded,
                                   size: 48,
-                                  color: AppTheme.textSecondary.withAlpha(60)),
-                              const SizedBox(height: 12),
-                              const Text('Select a PDF to preview',
+                                  color:
+                                      c.textSecondary.withAlpha(60)),
+                              SizedBox(height: 12),
+                              Text('Select a PDF to preview',
                                   style: TextStyle(
-                                      color: AppTheme.textSecondary, fontSize: 13)),
+                                      color: c.textSecondary,
+                                      fontSize: 13)),
                             ],
                           ),
                   )
-                : Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Center(
-                      child: LayoutBuilder(
-                        builder: (context, constraints) {
-                          final maxH = constraints.maxHeight;
-                          final maxW = constraints.maxWidth;
-                          // A4 ratio ~1.414
-                          double w = maxW;
-                          double h = w * 1.414;
-                          if (h > maxH) {
-                            h = maxH;
-                            w = h / 1.414;
-                          }
-                          return SizedBox(
-                            width: w,
-                            height: h,
-                            child: Stack(
-                              children: [
-                                // PDF page image
-                                Positioned.fill(
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(4),
-                                    child: Image.memory(_previewImage!, fit: BoxFit.fill),
-                                  ),
+                : Stack(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Center(
+                          child: LayoutBuilder(
+                            builder: (context, constraints) {
+                              final maxH = constraints.maxHeight;
+                              final maxW = constraints.maxWidth;
+                              double w = maxW;
+                              double h = w * 1.414;
+                              if (h > maxH) {
+                                h = maxH;
+                                w = h / 1.414;
+                              }
+                              return SizedBox(
+                                width: w,
+                                height: h,
+                                child: Stack(
+                                  children: [
+                                    Positioned.fill(
+                                      child: ClipRRect(
+                                        borderRadius:
+                                            BorderRadius.circular(4),
+                                        child: Image.memory(_previewImage!,
+                                            fit: BoxFit.fill),
+                                      ),
+                                    ),
+                                    ..._buildHandles(w, h),
+                                  ],
                                 ),
-                                // Draggable handles
-                                ..._buildHandles(w, h),
-                              ],
-                            ),
-                          );
-                        },
+                              );
+                            },
+                          ),
+                        ),
                       ),
-                    ),
+                      // Loading spinner overlay while flipping pages
+                      if (_loadingPreview)
+                        Container(
+                          color: Colors.black45,
+                          child: Center(
+                              child: CircularProgressIndicator()),
+                        ),
+                    ],
                   ),
           ),
         ],
@@ -494,57 +593,96 @@ class _SignAnnotateScreenState extends State<SignAnnotateScreen> {
   }
 
   List<Widget> _buildHandles(double w, double h) {
+      final c = AppColors.of(context);
     final controllers = [_nameCtrl, _titleCtrl, _dateCtrl, _customCtrl, null];
     return List.generate(_handles.length, (i) {
       final handle = _handles[i];
       final isSig = i == 4;
-      final text = isSig
-          ? (_sigImagePath != null ? 'Sig' : null)
+      final fieldText = isSig
+          ? (_sigImagePath != null ? p.basename(_sigImagePath!) : null)
           : controllers[i]!.text.trim().isEmpty
               ? null
               : controllers[i]!.text.trim();
-      if (text == null && !isSig) {
-        // Field is empty — show ghost handle
-      }
+      final hasContent = fieldText != null;
 
-      const hSize = 28.0;
-      final left = handle.x * w - hSize / 2;
-      final top = handle.y * h - hSize / 2;
+      const circleSize = 24.0;
+      final cx = (handle.x * w).clamp(circleSize / 2, w - circleSize / 2);
+      final cy = (handle.y * h).clamp(circleSize / 2, h - circleSize / 2);
+
+      // Label text: value if filled, else field name dimmed
+      final labelText = hasContent ? fieldText : handle.label;
 
       return Positioned(
-        left: left.clamp(0.0, w - hSize),
-        top: top.clamp(0.0, h - hSize),
+        left: cx - circleSize / 2,
+        top: cy - circleSize / 2,
         child: GestureDetector(
           onPanUpdate: (details) {
             setState(() {
-              handle.x = ((handle.x * w + details.delta.dx) / w).clamp(0.0, 1.0);
-              handle.y = ((handle.y * h + details.delta.dy) / h).clamp(0.0, 1.0);
+              handle.x =
+                  ((handle.x * w + details.delta.dx) / w).clamp(0.0, 1.0);
+              handle.y =
+                  ((handle.y * h + details.delta.dy) / h).clamp(0.0, 1.0);
             });
           },
-          child: Tooltip(
-            message: isSig ? 'Signature position' : '${handle.label}: ${text ?? "(empty)"}',
-            child: Container(
-              width: hSize,
-              height: hSize,
-              decoration: BoxDecoration(
-                color: handle.color.withAlpha(text != null || isSig ? 220 : 80),
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.white, width: 1.5),
-                boxShadow: [
-                  BoxShadow(
-                      color: handle.color.withAlpha(120),
-                      blurRadius: 6,
-                      spreadRadius: 1),
-                ],
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Drag circle
+              Container(
+                width: circleSize,
+                height: circleSize,
+                decoration: BoxDecoration(
+                  color: handle.color
+                      .withAlpha(hasContent ? 230 : 100),
+                  shape: BoxShape.circle,
+                  border:
+                      Border.all(color: Colors.white, width: 1.5),
+                  boxShadow: [
+                    BoxShadow(
+                        color: handle.color.withAlpha(140),
+                        blurRadius: 6,
+                        spreadRadius: 1),
+                  ],
+                ),
+                child: Center(
+                  child: Text(handle.key,
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold)),
+                ),
               ),
-              child: Center(
-                child: Text(handle.key,
-                    style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold)),
+              SizedBox(width: 4),
+              // Visible label pill
+              Container(
+                constraints: BoxConstraints(maxWidth: 110),
+                padding: EdgeInsets.symmetric(
+                    horizontal: 6, vertical: 3),
+                decoration: BoxDecoration(
+                  color: Color(0xFF0d1117).withAlpha(210),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(
+                      color: handle.color
+                          .withAlpha(hasContent ? 180 : 60),
+                      width: 1),
+                ),
+                child: Text(
+                  labelText,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: hasContent
+                        ? Colors.white
+                        : c.textSecondary,
+                    fontSize: 10,
+                    fontWeight: hasContent
+                        ? FontWeight.w500
+                        : FontWeight.normal,
+                  ),
+                ),
               ),
-            ),
+            ],
           ),
         ),
       );

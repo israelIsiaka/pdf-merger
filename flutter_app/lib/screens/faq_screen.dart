@@ -70,12 +70,13 @@ class FaqScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return AppScaffold(
       title: 'Help / FAQ',
       body: ListView.separated(
         padding: const EdgeInsets.all(20),
         itemCount: _items.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 8),
+        separatorBuilder: (_, __) => SizedBox(height: 8),
         itemBuilder: (context, index) => _FaqCard(item: _items[index]),
       ),
     );
@@ -101,15 +102,16 @@ class _FaqCardState extends State<_FaqCard> {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
       decoration: BoxDecoration(
-        color: AppTheme.cardBackground,
+        color: c.cardBackground,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
           color: _expanded
-              ? AppTheme.primary.withAlpha(80)
-              : AppTheme.cardBorder,
+              ? c.primary.withAlpha(80)
+              : c.cardBorder,
         ),
       ),
       child: InkWell(
@@ -125,31 +127,31 @@ class _FaqCardState extends State<_FaqCard> {
                   Expanded(
                     child: Text(
                       widget.item.question,
-                      style: const TextStyle(
-                        color: AppTheme.textPrimary,
+                      style: TextStyle(
+                        color: c.textPrimary,
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  SizedBox(width: 8),
                   Icon(
                     _expanded
                         ? Icons.keyboard_arrow_up_rounded
                         : Icons.keyboard_arrow_down_rounded,
-                    color: AppTheme.textSecondary,
+                    color: c.textSecondary,
                     size: 20,
                   ),
                 ],
               ),
               if (_expanded) ...[
-                const SizedBox(height: 10),
-                const Divider(height: 1),
-                const SizedBox(height: 10),
+                SizedBox(height: 10),
+                Divider(height: 1),
+                SizedBox(height: 10),
                 Text(
                   widget.item.answer,
-                  style: const TextStyle(
-                    color: AppTheme.textSecondary,
+                  style: TextStyle(
+                    color: c.textSecondary,
                     fontSize: 13,
                     height: 1.6,
                   ),

@@ -98,51 +98,53 @@ class _ProtectScreenState extends State<ProtectScreen> {
   }
 
   void _snack(String msg, {required bool error}) {
+      final c = AppColors.of(context);
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(msg),
-      backgroundColor: error ? AppTheme.error : AppTheme.success,
+      backgroundColor: error ? c.error : c.success,
     ));
   }
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return AppScaffold(
       title: 'Protect PDF',
       body: ProgressOverlay(
         visible: _loading,
         message: 'Encrypting PDF...',
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(28),
+          padding: EdgeInsets.all(28),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _sectionLabel('Input PDF'),
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
               _filePicker(_inputCtrl, 'Select input PDF...', _pickInput),
-              const SizedBox(height: 20),
+              SizedBox(height: 20),
               _sectionLabel('User Password'),
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
               _passwordField(_userPassCtrl, 'Password to open the PDF',
                   _showUser, () => setState(() => _showUser = !_showUser)),
-              const SizedBox(height: 16),
+              SizedBox(height: 16),
               _sectionLabel('Owner Password'),
-              const SizedBox(height: 4),
-              const Text(
+              SizedBox(height: 4),
+              Text(
                 'Controls editing/printing permissions. Leave blank to use user password.',
-                style: TextStyle(color: AppTheme.textSecondary, fontSize: 12),
+                style: TextStyle(color: c.textSecondary, fontSize: 12),
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
               _passwordField(
                   _ownerPassCtrl,
                   'Owner password (optional)',
                   _showOwner,
                   () => setState(() => _showOwner = !_showOwner)),
-              const SizedBox(height: 20),
+              SizedBox(height: 20),
               _sectionLabel('Output File'),
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
               _outputPicker(_outputCtrl, _browseOutput),
-              const SizedBox(height: 28),
+              SizedBox(height: 28),
               SizedBox(
                 width: double.infinity,
                 height: 48,
@@ -158,29 +160,33 @@ class _ProtectScreenState extends State<ProtectScreen> {
     );
   }
 
-  Widget _sectionLabel(String label) => Text(label,
-      style: const TextStyle(
-          color: AppTheme.textPrimary,
-          fontWeight: FontWeight.w600,
-          fontSize: 14));
+  Widget _sectionLabel(String label) {
+    final c = AppColors.of(context);
+    return Text(label,
+        style: TextStyle(
+            color: c.textPrimary,
+            fontWeight: FontWeight.w600,
+            fontSize: 14));
+  }
 
   Widget _filePicker(
       TextEditingController ctrl, String hint, VoidCallback onBrowse) {
+    final c = AppColors.of(context);
     return Row(
       children: [
         Expanded(
           child: TextField(
             controller: ctrl,
             readOnly: true,
-            style: const TextStyle(color: AppTheme.textPrimary, fontSize: 13),
+            style: TextStyle(color: c.textPrimary, fontSize: 13),
             decoration: InputDecoration(
               hintText: hint,
-              prefixIcon: const Icon(Icons.picture_as_pdf_rounded,
-                  size: 18, color: AppTheme.textSecondary),
+              prefixIcon: Icon(Icons.picture_as_pdf_rounded,
+                  size: 18, color: c.textSecondary),
             ),
           ),
         ),
-        const SizedBox(width: 10),
+        SizedBox(width: 10),
         CustomOutlinedButton(onPressed: onBrowse, label: 'Browse'),
       ],
     );
@@ -188,17 +194,18 @@ class _ProtectScreenState extends State<ProtectScreen> {
 
   Widget _passwordField(TextEditingController ctrl, String hint, bool show,
       VoidCallback toggle) {
+    final c = AppColors.of(context);
     return TextField(
       controller: ctrl,
       obscureText: !show,
-      style: const TextStyle(color: AppTheme.textPrimary, fontSize: 13),
+      style: TextStyle(color: c.textPrimary, fontSize: 13),
       decoration: InputDecoration(
         hintText: hint,
-        prefixIcon: const Icon(Icons.key_rounded,
-            size: 18, color: AppTheme.textSecondary),
+        prefixIcon: Icon(Icons.key_rounded,
+            size: 18, color: c.textSecondary),
         suffixIcon: IconButton(
           icon: Icon(show ? Icons.visibility_off : Icons.visibility,
-              size: 18, color: AppTheme.textSecondary),
+              size: 18, color: c.textSecondary),
           onPressed: toggle,
         ),
       ),
@@ -206,21 +213,22 @@ class _ProtectScreenState extends State<ProtectScreen> {
   }
 
   Widget _outputPicker(TextEditingController ctrl, VoidCallback onBrowse) {
+      final c = AppColors.of(context);
     return Row(
       children: [
         Expanded(
           child: TextField(
             controller: ctrl,
-            style: const TextStyle(color: AppTheme.textPrimary, fontSize: 13),
-            decoration: const InputDecoration(
+            style: TextStyle(color: c.textPrimary, fontSize: 13),
+            decoration: InputDecoration(
               hintText: 'Output file path...',
               prefixIcon: Icon(Icons.save_outlined,
-                  size: 18, color: AppTheme.textSecondary),
+                  size: 18, color: c.textSecondary),
             ),
           ),
         ),
-        const SizedBox(width: 10),
-        OutlinedButton(onPressed: onBrowse, child: const Text('Browse')),
+        SizedBox(width: 10),
+        OutlinedButton(onPressed: onBrowse, child: Text('Browse')),
       ],
     );
   }

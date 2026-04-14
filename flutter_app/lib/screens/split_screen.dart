@@ -96,50 +96,52 @@ class _SplitScreenState extends State<SplitScreen> {
   }
 
   void _snack(String msg, {required bool error}) {
+      final c = AppColors.of(context);
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text(msg),
-        backgroundColor: error ? AppTheme.error : AppTheme.success));
+        backgroundColor: error ? c.error : c.success));
   }
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return AppScaffold(
       title: 'Split PDF',
       body: ProgressOverlay(
         visible: _loading,
         message: 'Splitting PDF...',
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(28),
+          padding: EdgeInsets.all(28),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Input PDF',
-                  style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.w600, fontSize: 14)),
-              const SizedBox(height: 8),
+              Text('Input PDF',
+                  style: TextStyle(color: c.textPrimary, fontWeight: FontWeight.w600, fontSize: 14)),
+              SizedBox(height: 8),
               Row(children: [
                 Expanded(
                   child: TextField(
                     controller: _inputCtrl, readOnly: true,
-                    style: const TextStyle(color: AppTheme.textPrimary, fontSize: 13),
-                    decoration: const InputDecoration(
+                    style: TextStyle(color: c.textPrimary, fontSize: 13),
+                    decoration: InputDecoration(
                       hintText: 'Select PDF to split...',
-                      prefixIcon: Icon(Icons.picture_as_pdf_rounded, size: 18, color: AppTheme.textSecondary),
+                      prefixIcon: Icon(Icons.picture_as_pdf_rounded, size: 18, color: c.textSecondary),
                     ),
                   ),
                 ),
-                const SizedBox(width: 10),
-                OutlinedButton(onPressed: _pickInput, child: const Text('Browse')),
+                SizedBox(width: 10),
+                OutlinedButton(onPressed: _pickInput, child: Text('Browse')),
               ]),
               if (_pageCount != null) ...[
-                const SizedBox(height: 6),
+                SizedBox(height: 6),
                 Text('Pages: $_pageCount',
-                    style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12)),
+                    style: TextStyle(color: c.textSecondary, fontSize: 12)),
               ],
-              const SizedBox(height: 20),
-              const Text('Split Mode',
-                  style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.w600, fontSize: 14)),
-              const SizedBox(height: 8),
+              SizedBox(height: 20),
+              Text('Split Mode',
+                  style: TextStyle(color: c.textPrimary, fontWeight: FontWeight.w600, fontSize: 14)),
+              SizedBox(height: 8),
               RadioGroup<_SplitMode>(
                 groupValue: _mode,
                 onChanged: (v) => setState(() => _mode = v!),
@@ -151,93 +153,93 @@ class _SplitScreenState extends State<SplitScreen> {
                   ].map((entry) => RadioListTile<_SplitMode>(
                     value: entry.$1,
                     title: Text(entry.$2,
-                        style: const TextStyle(color: AppTheme.textPrimary, fontSize: 13)),
-                    activeColor: AppTheme.primary,
+                        style: TextStyle(color: c.textPrimary, fontSize: 13)),
+                    activeColor: c.primary,
                     contentPadding: EdgeInsets.zero,
                     visualDensity: VisualDensity.compact,
                   )).toList(),
                 ),
               ),
               if (_mode == _SplitMode.ranges) ...[
-                const SizedBox(height: 8),
+                SizedBox(height: 8),
                 TextField(
                   controller: _rangesCtrl,
-                  style: const TextStyle(color: AppTheme.textPrimary, fontSize: 13),
-                  decoration: const InputDecoration(
+                  style: TextStyle(color: c.textPrimary, fontSize: 13),
+                  decoration: InputDecoration(
                     hintText: 'e.g. 1-3,4-6,7',
-                    prefixIcon: Icon(Icons.format_list_numbered_rounded, size: 18, color: AppTheme.textSecondary),
+                    prefixIcon: Icon(Icons.format_list_numbered_rounded, size: 18, color: c.textSecondary),
                   ),
                 ),
               ],
               if (_mode == _SplitMode.everyN) ...[
-                const SizedBox(height: 8),
+                SizedBox(height: 8),
                 SizedBox(
                   width: 120,
                   child: TextField(
                     controller: _everyNCtrl,
                     keyboardType: TextInputType.number,
-                    style: const TextStyle(color: AppTheme.textPrimary, fontSize: 13),
-                    decoration: const InputDecoration(labelText: 'Pages per file'),
+                    style: TextStyle(color: c.textPrimary, fontSize: 13),
+                    decoration: InputDecoration(labelText: 'Pages per file'),
                   ),
                 ),
               ],
-              const SizedBox(height: 20),
-              const Text('Output Folder',
-                  style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.w600, fontSize: 14)),
-              const SizedBox(height: 8),
+              SizedBox(height: 20),
+              Text('Output Folder',
+                  style: TextStyle(color: c.textPrimary, fontWeight: FontWeight.w600, fontSize: 14)),
+              SizedBox(height: 8),
               Row(children: [
                 Expanded(
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    padding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF0a0f1e),
+                      color: Color(0xFF0a0f1e),
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: AppTheme.cardBorder),
+                      border: Border.all(color: c.cardBorder),
                     ),
                     child: Text(
                       _outputDir ?? 'No folder selected',
                       style: TextStyle(
-                          color: _outputDir != null ? AppTheme.textPrimary : AppTheme.textSecondary,
+                          color: _outputDir != null ? c.textPrimary : c.textSecondary,
                           fontSize: 13),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 ),
-                const SizedBox(width: 10),
-                OutlinedButton(onPressed: _pickOutputDir, child: const Text('Choose Folder')),
+                SizedBox(width: 10),
+                OutlinedButton(onPressed: _pickOutputDir, child: Text('Choose Folder')),
               ]),
-              const SizedBox(height: 28),
+              SizedBox(height: 28),
               SizedBox(
                 width: double.infinity, height: 48,
                 child: ElevatedButton.icon(
                   onPressed: _split,
-                  icon: const Icon(Icons.call_split_rounded),
-                  label: const Text('Split PDF'),
-                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFf59e0b)),
+                  icon: Icon(Icons.call_split_rounded),
+                  label: Text('Split PDF'),
+                  style: ElevatedButton.styleFrom(backgroundColor: Color(0xFFf59e0b)),
                 ),
               ),
               if (_outputFiles.isNotEmpty) ...[
-                const SizedBox(height: 24),
+                SizedBox(height: 24),
                 Text('Output files (${_outputFiles.length})',
-                    style: const TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.w600, fontSize: 14)),
-                const SizedBox(height: 8),
+                    style: TextStyle(color: c.textPrimary, fontWeight: FontWeight.w600, fontSize: 14)),
+                SizedBox(height: 8),
                 ...(_outputFiles.map((f) => Container(
-                  margin: const EdgeInsets.only(bottom: 6),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  margin: EdgeInsets.only(bottom: 6),
+                  padding: EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   decoration: BoxDecoration(
-                    color: AppTheme.cardBackground,
+                    color: c.cardBackground,
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppTheme.cardBorder),
+                    border: Border.all(color: c.cardBorder),
                   ),
                   child: Row(children: [
-                    const Icon(Icons.picture_as_pdf_rounded, size: 16, color: Color(0xFFf59e0b)),
-                    const SizedBox(width: 10),
+                    Icon(Icons.picture_as_pdf_rounded, size: 16, color: Color(0xFFf59e0b)),
+                    SizedBox(width: 10),
                     Expanded(
                       child: Text(p.basename(f),
-                          style: const TextStyle(color: AppTheme.textPrimary, fontSize: 12)),
+                          style: TextStyle(color: c.textPrimary, fontSize: 12)),
                     ),
                     Text(_fmtSize(f),
-                        style: const TextStyle(color: AppTheme.textSecondary, fontSize: 11)),
+                        style: TextStyle(color: c.textSecondary, fontSize: 11)),
                   ]),
                 ))),
               ],

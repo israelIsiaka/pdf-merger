@@ -51,6 +51,7 @@ class _PdfToImagesScreenState extends State<PdfToImagesScreen> {
   }
 
   Future<void> _convert() async {
+      final c = AppColors.of(context);
     if (_inputPath == null || _outputDir == null) return;
     setState(() {
       _loading = true;
@@ -68,14 +69,14 @@ class _PdfToImagesScreenState extends State<PdfToImagesScreen> {
         setState(() => _outputPaths = paths);
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text('Exported ${paths.length} image(s) to output folder'),
-          backgroundColor: AppTheme.success,
+          backgroundColor: c.success,
         ));
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text('Error: $e'),
-          backgroundColor: AppTheme.error,
+          backgroundColor: c.error,
         ));
       }
     } finally {
@@ -85,6 +86,7 @@ class _PdfToImagesScreenState extends State<PdfToImagesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return AppScaffold(
       title: 'PDF to Images',
       body: ProgressOverlay(
@@ -110,48 +112,48 @@ class _PdfToImagesScreenState extends State<PdfToImagesScreen> {
                 label: 'Drop PDF here',
                 sublabel: 'Each page will be exported as a PNG image',
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: 16),
               ElevatedButton.icon(
                 onPressed: _pickInput,
-                icon: const Icon(Icons.folder_open_rounded, size: 18),
-                label: const Text('Choose PDF'),
+                icon: Icon(Icons.folder_open_rounded, size: 18),
+                label: Text('Choose PDF'),
                 style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF22c55e)),
+                    backgroundColor: Color(0xFF22c55e)),
               ),
               if (_inputPath != null) ...[
-                const SizedBox(height: 12),
+                SizedBox(height: 12),
                 Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: AppTheme.cardBackground,
+                    color: c.cardBackground,
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppTheme.cardBorder),
+                    border: Border.all(color: c.cardBorder),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.picture_as_pdf_rounded,
+                      Icon(Icons.picture_as_pdf_rounded,
                           color: Color(0xFF22c55e), size: 20),
-                      const SizedBox(width: 10),
+                      SizedBox(width: 10),
                       Expanded(
                         child: Text(p.basename(_inputPath!),
-                            style: const TextStyle(
-                                color: AppTheme.textPrimary, fontSize: 13),
+                            style: TextStyle(
+                                color: c.textPrimary, fontSize: 13),
                             overflow: TextOverflow.ellipsis),
                       ),
                     ],
                   ),
                 ),
               ],
-              const SizedBox(height: 24),
-              const Text('Resolution (DPI)',
+              SizedBox(height: 24),
+              Text('Resolution (DPI)',
                   style: TextStyle(
-                      color: AppTheme.textPrimary,
+                      color: c.textPrimary,
                       fontWeight: FontWeight.w600,
                       fontSize: 14)),
-              const SizedBox(height: 4),
+              SizedBox(height: 4),
               Text('$_dpi DPI — higher = better quality, larger files',
-                  style: const TextStyle(
-                      color: AppTheme.textSecondary, fontSize: 12)),
+                  style: TextStyle(
+                      color: c.textSecondary, fontSize: 12)),
               Slider(
                 value: _dpi.toDouble(),
                 min: 72,
@@ -162,48 +164,48 @@ class _PdfToImagesScreenState extends State<PdfToImagesScreen> {
               ),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: const [
-                  Text('72', style: TextStyle(color: AppTheme.textSecondary, fontSize: 11)),
-                  Text('150', style: TextStyle(color: AppTheme.textSecondary, fontSize: 11)),
-                  Text('300', style: TextStyle(color: AppTheme.textSecondary, fontSize: 11)),
+                children: [
+                  Text('72', style: TextStyle(color: c.textSecondary, fontSize: 11)),
+                  Text('150', style: TextStyle(color: c.textSecondary, fontSize: 11)),
+                  Text('300', style: TextStyle(color: c.textSecondary, fontSize: 11)),
                 ],
               ),
-              const SizedBox(height: 24),
-              const Text('Output Folder',
+              SizedBox(height: 24),
+              Text('Output Folder',
                   style: TextStyle(
-                      color: AppTheme.textPrimary,
+                      color: c.textPrimary,
                       fontWeight: FontWeight.w600,
                       fontSize: 14)),
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
               Row(
                 children: [
                   Expanded(
                     child: Container(
-                      padding: const EdgeInsets.symmetric(
+                      padding: EdgeInsets.symmetric(
                           horizontal: 14, vertical: 12),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF0a0f1e),
+                        color: Color(0xFF0a0f1e),
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: AppTheme.cardBorder),
+                        border: Border.all(color: c.cardBorder),
                       ),
                       child: Text(
                         _outputDir ?? 'Choose output folder...',
                         style: TextStyle(
                             color: _outputDir != null
-                                ? AppTheme.textPrimary
-                                : AppTheme.textSecondary,
+                                ? c.textPrimary
+                                : c.textSecondary,
                             fontSize: 13),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  SizedBox(width: 10),
                   OutlinedButton(
                       onPressed: _pickOutputDir,
-                      child: const Text('Browse')),
+                      child: Text('Browse')),
                 ],
               ),
-              const SizedBox(height: 28),
+              SizedBox(height: 28),
               SizedBox(
                 width: double.infinity,
                 height: 48,
@@ -211,33 +213,33 @@ class _PdfToImagesScreenState extends State<PdfToImagesScreen> {
                   onPressed: _inputPath != null && _outputDir != null
                       ? _convert
                       : null,
-                  icon: const Icon(Icons.image_rounded),
-                  label: const Text('Export as Images'),
+                  icon: Icon(Icons.image_rounded),
+                  label: Text('Export as Images'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF22c55e),
-                    disabledBackgroundColor: AppTheme.cardBorder,
-                    disabledForegroundColor: AppTheme.textSecondary,
+                    backgroundColor: Color(0xFF22c55e),
+                    disabledBackgroundColor: c.cardBorder,
+                    disabledForegroundColor: c.textSecondary,
                   ),
                 ),
               ),
               if (_outputPaths.isNotEmpty) ...[
-                const SizedBox(height: 24),
+                SizedBox(height: 24),
                 Text('${_outputPaths.length} image(s) exported:',
-                    style: const TextStyle(
-                        color: AppTheme.textSecondary, fontSize: 13)),
-                const SizedBox(height: 8),
+                    style: TextStyle(
+                        color: c.textSecondary, fontSize: 13)),
+                SizedBox(height: 8),
                 ...(_outputPaths.take(5).map((path) => Padding(
-                      padding: const EdgeInsets.only(bottom: 4),
+                      padding: EdgeInsets.only(bottom: 4),
                       child: Text(
                         p.basename(path),
-                        style: const TextStyle(
-                            color: AppTheme.success, fontSize: 12),
+                        style: TextStyle(
+                            color: c.success, fontSize: 12),
                       ),
                     ))),
                 if (_outputPaths.length > 5)
                   Text('... and ${_outputPaths.length - 5} more',
-                      style: const TextStyle(
-                          color: AppTheme.textSecondary, fontSize: 12)),
+                      style: TextStyle(
+                          color: c.textSecondary, fontSize: 12)),
               ],
             ],
           ),

@@ -87,15 +87,17 @@ class _PeepScreenState extends State<PeepScreen> {
   }
 
   void _snack(String msg, {required bool error}) {
+      final c = AppColors.of(context);
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(msg),
-      backgroundColor: error ? AppTheme.error : AppTheme.success,
+      backgroundColor: error ? c.error : c.success,
     ));
   }
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return AppScaffold(
       title: 'Peep PDF — Remove Password',
       body: ProgressOverlay(
@@ -109,12 +111,12 @@ class _PeepScreenState extends State<PeepScreen> {
               Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFa78bfa).withAlpha(18),
+                  color: Color(0xFFa78bfa).withAlpha(18),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                      color: const Color(0xFFa78bfa).withAlpha(50)),
+                      color: Color(0xFFa78bfa).withAlpha(50)),
                 ),
-                child: const Row(
+                child: Row(
                   children: [
                     Icon(Icons.info_outline_rounded,
                         color: Color(0xFFa78bfa), size: 18),
@@ -129,88 +131,88 @@ class _PeepScreenState extends State<PeepScreen> {
                   ],
                 ),
               ),
-              const SizedBox(height: 24),
-              const Text('Input PDF',
+              SizedBox(height: 24),
+              Text('Input PDF',
                   style: TextStyle(
-                      color: AppTheme.textPrimary,
+                      color: c.textPrimary,
                       fontWeight: FontWeight.w600,
                       fontSize: 14)),
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
               Row(
                 children: [
                   Expanded(
                     child: TextField(
                       controller: _inputCtrl,
                       readOnly: true,
-                      style: const TextStyle(
-                          color: AppTheme.textPrimary, fontSize: 13),
-                      decoration: const InputDecoration(
+                      style: TextStyle(
+                          color: c.textPrimary, fontSize: 13),
+                      decoration: InputDecoration(
                         hintText: 'Select password-protected PDF...',
                         prefixIcon: Icon(Icons.picture_as_pdf_rounded,
-                            size: 18, color: AppTheme.textSecondary),
+                            size: 18, color: c.textSecondary),
                       ),
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  SizedBox(width: 10),
                   CustomOutlinedButton(
                       onPressed: _pickInput, label: 'Browse'),
                 ],
               ),
-              const SizedBox(height: 20),
-              const Text('Current Password',
+              SizedBox(height: 20),
+              Text('Current Password',
                   style: TextStyle(
-                      color: AppTheme.textPrimary,
+                      color: c.textPrimary,
                       fontWeight: FontWeight.w600,
                       fontSize: 14)),
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
               TextField(
                 controller: _passCtrl,
                 obscureText: !_showPass,
-                style: const TextStyle(
-                    color: AppTheme.textPrimary, fontSize: 13),
+                style: TextStyle(
+                    color: c.textPrimary, fontSize: 13),
                 decoration: InputDecoration(
                   hintText: 'Enter the current password',
-                  prefixIcon: const Icon(Icons.lock_open_rounded,
-                      size: 18, color: AppTheme.textSecondary),
+                  prefixIcon: Icon(Icons.lock_open_rounded,
+                      size: 18, color: c.textSecondary),
                   suffixIcon: IconButton(
                     icon: Icon(
                         _showPass
                             ? Icons.visibility_off
                             : Icons.visibility,
                         size: 18,
-                        color: AppTheme.textSecondary),
+                        color: c.textSecondary),
                     onPressed: () =>
                         setState(() => _showPass = !_showPass),
                   ),
                 ),
               ),
-              const SizedBox(height: 20),
-              const Text('Output File',
+              SizedBox(height: 20),
+              Text('Output File',
                   style: TextStyle(
-                      color: AppTheme.textPrimary,
+                      color: c.textPrimary,
                       fontWeight: FontWeight.w600,
                       fontSize: 14)),
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
               Row(
                 children: [
                   Expanded(
                     child: TextField(
                       controller: _outputCtrl,
-                      style: const TextStyle(
-                          color: AppTheme.textPrimary, fontSize: 13),
-                      decoration: const InputDecoration(
+                      style: TextStyle(
+                          color: c.textPrimary, fontSize: 13),
+                      decoration: InputDecoration(
                         hintText: 'Output file path...',
                         prefixIcon: Icon(Icons.save_outlined,
-                            size: 18, color: AppTheme.textSecondary),
+                            size: 18, color: c.textSecondary),
                       ),
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  SizedBox(width: 10),
                   CustomOutlinedButton(
                       onPressed: _browseOutput, label: 'Browse'),
                 ],
               ),
-              const SizedBox(height: 28),
+              SizedBox(height: 28),
               SizedBox(
                 width: double.infinity,
                 height: 48,

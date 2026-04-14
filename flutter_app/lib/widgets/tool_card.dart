@@ -26,9 +26,10 @@ class _ToolCardState extends State<ToolCard> {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
+      onExit:  (_) => setState(() => _hovered = false),
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
         onTap: widget.onTap,
@@ -39,14 +40,11 @@ class _ToolCardState extends State<ToolCard> {
           padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
             color: _hovered
-                ? Color.lerp(AppTheme.cardBackground,
-                    widget.color.withAlpha(30), 0.5)
-                : AppTheme.cardBackground,
+                ? Color.lerp(c.cardBackground, widget.color.withAlpha(30), 0.5)
+                : c.cardBackground,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: _hovered
-                  ? widget.color.withAlpha(0x88)
-                  : AppTheme.cardBorder,
+              color: _hovered ? widget.color.withAlpha(0x88) : c.cardBorder,
               width: 1,
             ),
           ),
@@ -57,12 +55,11 @@ class _ToolCardState extends State<ToolCard> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Symbol box
                   Container(
                     width: 38,
                     height: 38,
                     decoration: BoxDecoration(
-                      color: widget.color.withAlpha(0x21), // ~13%
+                      color: widget.color.withAlpha(0x21),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     alignment: Alignment.center,
@@ -75,11 +72,10 @@ class _ToolCardState extends State<ToolCard> {
                       ),
                     ),
                   ),
-                  // Arrow
                   AnimatedDefaultTextStyle(
                     duration: const Duration(milliseconds: 160),
                     style: TextStyle(
-                      color: _hovered ? widget.color : AppTheme.textSecondary,
+                      color: _hovered ? widget.color : c.textSecondary,
                       fontSize: 18,
                       fontWeight: FontWeight.w300,
                     ),
@@ -90,8 +86,8 @@ class _ToolCardState extends State<ToolCard> {
               const SizedBox(height: 14),
               Text(
                 widget.name,
-                style: const TextStyle(
-                  color: AppTheme.textPrimary,
+                style: TextStyle(
+                  color: c.textPrimary,
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                   letterSpacing: 0.2,
@@ -103,8 +99,8 @@ class _ToolCardState extends State<ToolCard> {
               Expanded(
                 child: Text(
                   widget.description,
-                  style: const TextStyle(
-                    color: AppTheme.textSecondary,
+                  style: TextStyle(
+                    color: c.textSecondary,
                     fontSize: 12,
                     height: 1.4,
                   ),

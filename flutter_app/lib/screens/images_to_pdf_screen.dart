@@ -64,6 +64,7 @@ class _ImagesToPdfScreenState extends State<ImagesToPdfScreen> {
   }
 
   Future<void> _convert() async {
+      final c = AppColors.of(context);
     if (_images.isEmpty || _outputCtrl.text.isEmpty) return;
     setState(() => _loading = true);
     try {
@@ -76,14 +77,14 @@ class _ImagesToPdfScreenState extends State<ImagesToPdfScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text('Created: ${p.basename(_outputCtrl.text)}'),
-          backgroundColor: AppTheme.success,
+          backgroundColor: c.success,
         ));
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text('Error: $e'),
-          backgroundColor: AppTheme.error,
+          backgroundColor: c.error,
         ));
       }
     } finally {
@@ -104,6 +105,7 @@ class _ImagesToPdfScreenState extends State<ImagesToPdfScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return AppScaffold(
       title: 'Images to PDF',
       body: ProgressOverlay(
@@ -138,44 +140,44 @@ class _ImagesToPdfScreenState extends State<ImagesToPdfScreen> {
                 sublabel: 'JPG, PNG, BMP, GIF, TIFF supported',
                 allowMultiple: true,
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: 16),
               Row(
                 children: [
                   ElevatedButton.icon(
                     onPressed: _addImages,
-                    icon: const Icon(Icons.add_photo_alternate_rounded, size: 18),
-                    label: const Text('Add Images'),
+                    icon: Icon(Icons.add_photo_alternate_rounded, size: 18),
+                    label: Text('Add Images'),
                     style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFec4899)),
+                        backgroundColor: Color(0xFFec4899)),
                   ),
-                  const Spacer(),
+                  Spacer(),
                   if (_images.isNotEmpty)
                     TextButton.icon(
                       onPressed: () => setState(() => _images.clear()),
-                      icon: const Icon(Icons.clear_all_rounded, size: 16),
-                      label: const Text('Clear All'),
+                      icon: Icon(Icons.clear_all_rounded, size: 16),
+                      label: Text('Clear All'),
                       style: TextButton.styleFrom(
-                          foregroundColor: AppTheme.textSecondary),
+                          foregroundColor: c.textSecondary),
                     ),
                 ],
               ),
               if (_images.isNotEmpty) ...[
-                const SizedBox(height: 20),
+                SizedBox(height: 20),
                 Text(
                   '${_images.length} image${_images.length == 1 ? '' : 's'} — drag to reorder',
-                  style: const TextStyle(
-                      color: AppTheme.textSecondary, fontSize: 13),
+                  style: TextStyle(
+                      color: c.textSecondary, fontSize: 13),
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: 8),
                 Container(
                   decoration: BoxDecoration(
-                    color: AppTheme.cardBackground,
+                    color: c.cardBackground,
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: AppTheme.cardBorder),
+                    border: Border.all(color: c.cardBorder),
                   ),
                   child: ReorderableListView.builder(
                     shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
+                    physics: NeverScrollableScrollPhysics(),
                     itemCount: _images.length,
                     onReorder: (oldIndex, newIndex) {
                       setState(() {
@@ -188,28 +190,28 @@ class _ImagesToPdfScreenState extends State<ImagesToPdfScreen> {
                       final path = _images[index];
                       return ListTile(
                         key: ValueKey(path + index.toString()),
-                        leading: const Icon(Icons.image_rounded,
+                        leading: Icon(Icons.image_rounded,
                             color: Color(0xFFec4899), size: 20),
                         title: Text(
                           p.basename(path),
-                          style: const TextStyle(
-                              color: AppTheme.textPrimary, fontSize: 13),
+                          style: TextStyle(
+                              color: c.textPrimary, fontSize: 13),
                           overflow: TextOverflow.ellipsis,
                         ),
                         subtitle: Text(_fileSize(path),
-                            style: const TextStyle(
-                                color: AppTheme.textSecondary, fontSize: 11)),
+                            style: TextStyle(
+                                color: c.textSecondary, fontSize: 11)),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Text('#${index + 1}',
-                                style: const TextStyle(
-                                    color: AppTheme.textSecondary,
+                                style: TextStyle(
+                                    color: c.textSecondary,
                                     fontSize: 12)),
-                            const SizedBox(width: 8),
+                            SizedBox(width: 8),
                             IconButton(
-                              icon: const Icon(Icons.close_rounded,
-                                  size: 16, color: AppTheme.textSecondary),
+                              icon: Icon(Icons.close_rounded,
+                                  size: 16, color: c.textSecondary),
                               onPressed: () =>
                                   setState(() => _images.removeAt(index)),
                               tooltip: 'Remove',
@@ -222,33 +224,33 @@ class _ImagesToPdfScreenState extends State<ImagesToPdfScreen> {
                   ),
                 ),
               ],
-              const SizedBox(height: 24),
-              const Text('Output File',
+              SizedBox(height: 24),
+              Text('Output File',
                   style: TextStyle(
-                      color: AppTheme.textPrimary,
+                      color: c.textPrimary,
                       fontWeight: FontWeight.w600,
                       fontSize: 14)),
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
               Row(
                 children: [
                   Expanded(
                     child: TextField(
                       controller: _outputCtrl,
-                      style: const TextStyle(
-                          color: AppTheme.textPrimary, fontSize: 13),
-                      decoration: const InputDecoration(
+                      style: TextStyle(
+                          color: c.textPrimary, fontSize: 13),
+                      decoration: InputDecoration(
                         hintText: 'Choose output path...',
                         prefixIcon: Icon(Icons.save_outlined,
-                            size: 18, color: AppTheme.textSecondary),
+                            size: 18, color: c.textSecondary),
                       ),
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  SizedBox(width: 10),
                   OutlinedButton(
-                      onPressed: _browseOutput, child: const Text('Browse')),
+                      onPressed: _browseOutput, child: Text('Browse')),
                 ],
               ),
-              const SizedBox(height: 28),
+              SizedBox(height: 28),
               SizedBox(
                 width: double.infinity,
                 height: 48,
@@ -257,14 +259,14 @@ class _ImagesToPdfScreenState extends State<ImagesToPdfScreen> {
                       _images.isNotEmpty && _outputCtrl.text.isNotEmpty
                           ? _convert
                           : null,
-                  icon: const Icon(Icons.picture_as_pdf_rounded),
+                  icon: Icon(Icons.picture_as_pdf_rounded),
                   label: Text(_images.isEmpty
                       ? 'Add images first'
                       : 'Combine ${_images.length} Images'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFec4899),
-                    disabledBackgroundColor: AppTheme.cardBorder,
-                    disabledForegroundColor: AppTheme.textSecondary,
+                    backgroundColor: Color(0xFFec4899),
+                    disabledBackgroundColor: c.cardBorder,
+                    disabledForegroundColor: c.textSecondary,
                   ),
                 ),
               ),

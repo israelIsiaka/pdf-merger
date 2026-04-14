@@ -92,15 +92,16 @@ class _MergeScreenState extends State<MergeScreen> {
   }
 
   Future<void> _merge() async {
+      final c = AppColors.of(context);
     if (_files.length < 2) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Add at least 2 PDF files to merge.')),
+        SnackBar(content: Text('Add at least 2 PDF files to merge.')),
       );
       return;
     }
     if (_outputCtrl.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Choose an output file path.')),
+        SnackBar(content: Text('Choose an output file path.')),
       );
       return;
     }
@@ -117,7 +118,7 @@ class _MergeScreenState extends State<MergeScreen> {
           SnackBar(
             content: Text(
                 'Merged successfully: ${p.basename(_outputCtrl.text)}'),
-            backgroundColor: AppTheme.success,
+            backgroundColor: c.success,
           ),
         );
       }
@@ -126,7 +127,7 @@ class _MergeScreenState extends State<MergeScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error: $e'),
-            backgroundColor: AppTheme.error,
+            backgroundColor: c.error,
           ),
         );
       }
@@ -148,6 +149,7 @@ class _MergeScreenState extends State<MergeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final c = AppColors.of(context);
     return AppScaffold(
       title: 'Merge PDFs',
       body: ProgressOverlay(
@@ -171,7 +173,7 @@ class _MergeScreenState extends State<MergeScreen> {
                 sublabel: 'or use the buttons below to add files',
                 allowMultiple: true,
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: 16),
               Row(
                 children: [
                   CustomElevatedButton(
@@ -179,13 +181,13 @@ class _MergeScreenState extends State<MergeScreen> {
                     label: 'Add PDFs',
                     icon: Icons.add_rounded,
                   ),
-                  const SizedBox(width: 12),
+                  SizedBox(width: 12),
                   CustomOutlinedButton(
                     onPressed: _addFolder,
                     label: 'Add Folder',
                     icon: Icons.folder_open_rounded,
                   ),
-                  const Spacer(),
+                  Spacer(),
                   if (_files.isNotEmpty)
                     CustomOutlinedButton(
                       onPressed: () => setState(() => _files.clear()),
@@ -195,22 +197,22 @@ class _MergeScreenState extends State<MergeScreen> {
                 ],
               ),
               if (_files.isNotEmpty) ...[
-                const SizedBox(height: 20),
+                SizedBox(height: 20),
                 Text(
                   '${_files.length} file${_files.length == 1 ? '' : 's'} — drag to reorder',
-                  style: const TextStyle(
-                      color: AppTheme.textSecondary, fontSize: 13),
+                  style: TextStyle(
+                      color: c.textSecondary, fontSize: 13),
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: 8),
                 Container(
                   decoration: BoxDecoration(
-                    color: AppTheme.cardBackground,
+                    color: c.cardBackground,
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: AppTheme.cardBorder),
+                    border: Border.all(color: c.cardBorder),
                   ),
                   child: ReorderableListView.builder(
                     shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
+                    physics: NeverScrollableScrollPhysics(),
                     itemCount: _files.length,
                     onReorder: (oldIndex, newIndex) {
                       setState(() {
@@ -223,31 +225,31 @@ class _MergeScreenState extends State<MergeScreen> {
                       final path = _files[index];
                       return ListTile(
                         key: ValueKey(path + index.toString()),
-                        leading: const Icon(Icons.picture_as_pdf_rounded,
+                        leading: Icon(Icons.picture_as_pdf_rounded,
                             color: Color(0xFF4f7ef7), size: 20),
                         title: Text(
                           p.basename(path),
-                          style: const TextStyle(
-                              color: AppTheme.textPrimary, fontSize: 13),
+                          style: TextStyle(
+                              color: c.textPrimary, fontSize: 13),
                           overflow: TextOverflow.ellipsis,
                         ),
                         subtitle: Text(
                           _fileSize(path),
-                          style: const TextStyle(
-                              color: AppTheme.textSecondary, fontSize: 11),
+                          style: TextStyle(
+                              color: c.textSecondary, fontSize: 11),
                         ),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(
                               '#${index + 1}',
-                              style: const TextStyle(
-                                  color: AppTheme.textSecondary, fontSize: 12),
+                              style: TextStyle(
+                                  color: c.textSecondary, fontSize: 12),
                             ),
-                            const SizedBox(width: 8),
+                            SizedBox(width: 8),
                             IconButton(
-                              icon: const Icon(Icons.close_rounded,
-                                  size: 16, color: AppTheme.textSecondary),
+                              icon: Icon(Icons.close_rounded,
+                                  size: 16, color: c.textSecondary),
                               onPressed: () =>
                                   setState(() => _files.removeAt(index)),
                               tooltip: 'Remove',
@@ -260,37 +262,37 @@ class _MergeScreenState extends State<MergeScreen> {
                   ),
                 ),
               ],
-              const SizedBox(height: 24),
-              const Text(
+              SizedBox(height: 24),
+              Text(
                 'Output File',
                 style: TextStyle(
-                    color: AppTheme.textPrimary,
+                    color: c.textPrimary,
                     fontWeight: FontWeight.w600,
                     fontSize: 14),
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
               Row(
                 children: [
                   Expanded(
                     child: TextField(
                       controller: _outputCtrl,
-                      style: const TextStyle(
-                          color: AppTheme.textPrimary, fontSize: 13),
-                      decoration: const InputDecoration(
+                      style: TextStyle(
+                          color: c.textPrimary, fontSize: 13),
+                      decoration: InputDecoration(
                         hintText: 'Choose output path...',
                         prefixIcon: Icon(Icons.save_outlined,
-                            size: 18, color: AppTheme.textSecondary),
+                            size: 18, color: c.textSecondary),
                       ),
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  SizedBox(width: 10),
                   CustomOutlinedButton(
                     onPressed: _browseOutput,
                     label: 'Browse',
                   ),
                 ],
               ),
-              const SizedBox(height: 28),
+              SizedBox(height: 28),
               SizedBox(
                 width: double.infinity,
                 height: 48,
