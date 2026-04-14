@@ -71,13 +71,48 @@ class PdfService {
   // Compress
   // ---------------------------------------------------------------------------
   static Future<void> compressPdf(
-      String inputPath, String outputPath) async {
+    String inputPath,
+    String outputPath, {
+    PdfCompressionLevel level = PdfCompressionLevel.best,
+  }) async {
     final bytes = await File(inputPath).readAsBytes();
     final doc = PdfDocument(inputBytes: bytes);
-    doc.compressionLevel = PdfCompressionLevel.best;
+    doc.compressionLevel = level;
     final outBytes = doc.saveSync();
     doc.dispose();
     await File(outputPath).writeAsBytes(outBytes);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Render first page as preview image (used by watermark / annotate screens)
+  // ---------------------------------------------------------------------------
+  static Future<Uint8List?> renderPreview(String pdfPath,
+      {double targetWidth = 400}) async {
+    try {
+      final doc = await rx.PdfDocument.openFile(pdfPath);
+      if (doc.pages.isEmpty) {
+        doc.dispose();
+        return null;
+      }
+      final page = doc.pages[0];
+      final scale = targetWidth / page.width;
+      final image = await page.render(
+        fullWidth: page.width * scale,
+        fullHeight: page.height * scale,
+        backgroundColor: const Color(0xFFFFFFFF),
+      );
+      if (image == null) {
+        doc.dispose();
+        return null;
+      }
+      final bytes =
+          await _renderImageToBytes(image, (page.width * scale).toInt(),
+              (page.height * scale).toInt());
+      doc.dispose();
+      return bytes;
+    } catch (_) {
+      return null;
+    }
   }
 
   // ---------------------------------------------------------------------------

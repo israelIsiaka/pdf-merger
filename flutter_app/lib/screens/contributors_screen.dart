@@ -12,8 +12,8 @@ class ContributorsScreen extends StatelessWidget {
       name: 'Israel Isiaka',
       role: 'Creator & Lead Developer',
       github: 'https://github.com/israelIsiaka',
-      description:
-          'Built PDF Merger from the ground up. Full-stack developer passionate about open-source tools that respect user privacy.',
+      linkedIn: 'https://www.linkedin.com/in/isrealisiaka/',
+      description: 'A developer that likes to solve problems.',
     ),
     Contributor(
       name: 'Precious Osokogu',

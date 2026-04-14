@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import 'package:syncfusion_flutter_pdf/pdf.dart' show PdfCompressionLevel;
 import '../theme/app_theme.dart';
 import '../widgets/app_scaffold.dart';
 import '../widgets/progress_overlay.dart';
@@ -10,6 +11,14 @@ import '../widgets/custom_button.dart';
 import '../services/pdf_service.dart';
 import '../services/history_service.dart';
 import '../models/history_entry.dart';
+
+class _Level {
+  final String label;
+  final String description;
+  final PdfCompressionLevel value;
+  final Color color;
+  const _Level(this.label, this.description, this.value, this.color);
+}
 
 class CompressScreen extends StatefulWidget {
   const CompressScreen({super.key});
@@ -24,6 +33,21 @@ class _CompressScreenState extends State<CompressScreen> {
   bool _loading = false;
   int? _beforeBytes;
   int? _afterBytes;
+
+  static const List<_Level> _levels = [
+    _Level('None', 'No compression applied — fastest, largest file',
+        PdfCompressionLevel.none, Color(0xFF64748b)),
+    _Level('Low', 'Light compression — very fast, minor size reduction',
+        PdfCompressionLevel.bestSpeed, Color(0xFF22c55e)),
+    _Level('Normal', 'Balanced compression — good speed and size',
+        PdfCompressionLevel.normal, Color(0xFF4f7ef7)),
+    _Level('High', 'Strong compression — slower, noticeably smaller',
+        PdfCompressionLevel.aboveNormal, Color(0xFFf59e0b)),
+    _Level('Maximum', 'Best compression — slowest, smallest file',
+        PdfCompressionLevel.best, Color(0xFF8b5cf6)),
+  ];
+
+  int _selectedLevel = 2; // Normal by default
 
   @override
   void dispose() {
@@ -71,10 +95,14 @@ class _CompressScreenState extends State<CompressScreen> {
     }
     setState(() => _loading = true);
     try {
-      await PdfService.compressPdf(_inputCtrl.text, _outputCtrl.text);
+      await PdfService.compressPdf(
+        _inputCtrl.text,
+        _outputCtrl.text,
+        level: _levels[_selectedLevel].value,
+      );
       final afterBytes = File(_outputCtrl.text).lengthSync();
       await HistoryService.addEntry(HistoryEntry(
-        operation: 'Compress PDF',
+        operation: 'Compress PDF (${_levels[_selectedLevel].label})',
         outputPath: _outputCtrl.text,
         timestamp: DateTime.now(),
       ));
@@ -120,6 +148,7 @@ class _CompressScreenState extends State<CompressScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Input
               const Text('Input PDF',
                   style: TextStyle(
                       color: AppTheme.textPrimary,
@@ -141,8 +170,7 @@ class _CompressScreenState extends State<CompressScreen> {
                   ),
                 ),
                 const SizedBox(width: 10),
-                CustomOutlinedButton(
-                    onPressed: _pickInput, label: 'Browse'),
+                CustomOutlinedButton(onPressed: _pickInput, label: 'Browse'),
               ]),
               if (_beforeBytes != null) ...[
                 const SizedBox(height: 8),
@@ -150,6 +178,92 @@ class _CompressScreenState extends State<CompressScreen> {
                     style: const TextStyle(
                         color: AppTheme.textSecondary, fontSize: 12)),
               ],
+              const SizedBox(height: 28),
+
+              // Compression level
+              const Text('Compression Level',
+                  style: TextStyle(
+                      color: AppTheme.textPrimary,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14)),
+              const SizedBox(height: 4),
+              Text(_levels[_selectedLevel].description,
+                  style: const TextStyle(
+                      color: AppTheme.textSecondary, fontSize: 12)),
+              const SizedBox(height: 14),
+              Column(
+                children: List.generate(_levels.length, (i) {
+                  final lvl = _levels[i];
+                  final selected = _selectedLevel == i;
+                  return GestureDetector(
+                    onTap: () => setState(() => _selectedLevel = i),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 150),
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: selected
+                            ? lvl.color.withAlpha(20)
+                            : AppTheme.cardBackground,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color:
+                              selected ? lvl.color : AppTheme.cardBorder,
+                          width: selected ? 1.5 : 1,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 12,
+                            height: 12,
+                            decoration: BoxDecoration(
+                              color: selected ? lvl.color : Colors.transparent,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                  color: selected
+                                      ? lvl.color
+                                      : AppTheme.textSecondary,
+                                  width: 1.5),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(lvl.label,
+                                style: TextStyle(
+                                    color: selected
+                                        ? AppTheme.textPrimary
+                                        : AppTheme.textSecondary,
+                                    fontWeight: selected
+                                        ? FontWeight.w600
+                                        : FontWeight.normal,
+                                    fontSize: 13)),
+                          ),
+                          // Level indicator bars
+                          Row(
+                            children: List.generate(5, (bar) {
+                              final active = bar <= i;
+                              return Container(
+                                width: 6,
+                                height: 6 + bar * 3.0,
+                                margin: const EdgeInsets.only(left: 3),
+                                decoration: BoxDecoration(
+                                  color: active
+                                      ? lvl.color
+                                      : AppTheme.cardBorder,
+                                  borderRadius: BorderRadius.circular(2),
+                                ),
+                              );
+                            }),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }),
+              ),
+
               const SizedBox(height: 20),
               const Text('Output File',
                   style: TextStyle(
@@ -174,6 +288,7 @@ class _CompressScreenState extends State<CompressScreen> {
                 CustomOutlinedButton(
                     onPressed: _browseOutput, label: 'Browse'),
               ]),
+
               if (_afterBytes != null && saved != null) ...[
                 const SizedBox(height: 20),
                 Container(
@@ -210,6 +325,7 @@ class _CompressScreenState extends State<CompressScreen> {
                   ),
                 ),
               ],
+
               const SizedBox(height: 28),
               SizedBox(
                 width: double.infinity,
