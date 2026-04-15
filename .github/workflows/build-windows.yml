@@ -29,13 +29,14 @@ jobs:
       working-directory: flutter_app
       run: flutter build windows --release
 
-    - name: Create distribution zip
+    - name: Inspect build output
+      working-directory: flutter_app
       run: |
-        cd flutter_app/build/windows/runner/Release
-        7z a ../../../../../../pdf-merger-windows.zip .
+        Write-Host 'Listing flutter_app/build/windows:'
+        Get-ChildItem -Path build\windows -Recurse | Select-Object -First 50
 
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
       with:
         name: pdf-merger-windows
-        path: pdf-merger-windows.zip
+        path: flutter_app/build/windows/runner/Release
