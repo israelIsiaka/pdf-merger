@@ -53,11 +53,20 @@ jobs:
           Write-Host "WARNING: Release folder not found at $releasePath"
           Write-Host "Searching for any Release folders..."
           Get-ChildItem -Path "build" -Filter "Release" -Recurse -Directory
+          
+          Write-Host "`nSearching for any exe files..."
+          Get-ChildItem -Path "build" -Filter "*.exe" -Recurse
+          
+          Write-Host "`nListing entire build directory..."
+          Get-ChildItem -Path "build" -Recurse -Directory | Select-Object -First 20
         }
 
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
       with:
         name: pdf-merger-windows
-        path: flutter_app/build/windows/runner/Release
-        if-no-files-found: warn
+        path: |
+          flutter_app/build/windows/**/*.exe
+          flutter_app/build/windows/**/*.dll
+          flutter_app/build/windows/**/data/
+        if-no-files-found: error
