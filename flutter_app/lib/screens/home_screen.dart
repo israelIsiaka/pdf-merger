@@ -159,34 +159,35 @@ class HomeScreen extends StatelessWidget {
               children: [
                 const SizedBox(height: 40),
                 // Header + theme toggle
-                Stack(
-                  alignment: Alignment.center,
+                Row(
                   children: [
-                    Column(
-                      children: [
-                        Text(
-                          'PDF Merger',
-                          style: TextStyle(
-                            color: c.textPrimary,
-                            fontSize: 36,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 0.5,
+                    const SizedBox(width: 52),
+                    Expanded(
+                      child: Column(
+                        children: [
+                          Text(
+                            'PDF Merger',
+                            style: TextStyle(
+                              color: c.textPrimary,
+                              fontSize: 36,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.5,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Professional PDF Processing Suite',
-                          style: TextStyle(
-                            color: c.textSecondary,
-                            fontSize: 16,
-                            letterSpacing: 0.3,
+                          const SizedBox(height: 8),
+                          Text(
+                            'Professional PDF Processing Suite',
+                            style: TextStyle(
+                              color: c.textSecondary,
+                              fontSize: 16,
+                              letterSpacing: 0.3,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                    Positioned(
-                      right: 24,
-                      top: 0,
+                    SizedBox(
+                      width: 52,
                       child: ValueListenableBuilder<ThemeMode>(
                         valueListenable: themeNotifier,
                         builder: (_, mode, _) => IconButton(

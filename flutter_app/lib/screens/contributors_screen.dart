@@ -10,10 +10,11 @@ class ContributorsScreen extends StatelessWidget {
   static const List<Contributor> _contributors = [
     Contributor(
       name: 'Israel Isiaka',
-      role: 'Creator & Lead Developer',
+      role: 'Technical PM & Software Engineer',
       github: 'https://github.com/israelIsiaka',
       linkedIn: 'https://www.linkedin.com/in/isrealisiaka/',
-      description: 'Software engineer.',
+      description:
+          'A lifelong learner with a background in computer science.',
     ),
     Contributor(
       name: 'Precious Osokogu',
@@ -161,6 +162,79 @@ class ContributorsScreen extends StatelessWidget {
 
             SizedBox(height: 20),
 
+            // Support the project
+            Container(
+              width: double.infinity,
+              padding: EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Color(0xFFf59e0b).withAlpha(25),
+                    Color(0xFFef4444).withAlpha(15),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Color(0xFFf59e0b).withAlpha(60)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.favorite_rounded,
+                          size: 18, color: Color(0xFFf59e0b)),
+                      SizedBox(width: 8),
+                      Text(
+                        'Support the project',
+                        style: TextStyle(
+                          color: c.textPrimary,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    'PDF Merger is free and always will be. If it saves you time '
+                    'or you would like to request a feature, consider supporting '
+                    'the project — any amount means a lot.',
+                    style: TextStyle(
+                        color: c.textSecondary, fontSize: 13, height: 1.5),
+                  ),
+                  SizedBox(height: 16),
+                  Row(
+                    children: [
+                      _SupportButton(
+                        icon: Icons.coffee_rounded,
+                        label: 'Buy Me a Coffee',
+                        url: 'https://buymeacoffee.com/placeholder',
+                        color: Color(0xFFf59e0b),
+                      ),
+                      SizedBox(width: 10),
+                      _SupportButton(
+                        icon: Icons.favorite_border_rounded,
+                        label: 'GitHub Sponsors',
+                        url: 'https://github.com/sponsors/placeholder',
+                        color: Color(0xFFec4899),
+                      ),
+                      SizedBox(width: 10),
+                      _SupportButton(
+                        icon: Icons.attach_money_rounded,
+                        label: 'PayPal',
+                        url: 'https://paypal.me/placeholder',
+                        color: Color(0xFF4f7ef7),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+
+            SizedBox(height: 20),
+
             // License
             Container(
               width: double.infinity,
@@ -201,7 +275,7 @@ class ContributorsScreen extends StatelessWidget {
 
 class _ContributorCard extends StatelessWidget {
   final Contributor contributor;
-  _ContributorCard({required this.contributor});
+  const _ContributorCard({required this.contributor});
 
   @override
   Widget build(BuildContext context) {
@@ -333,7 +407,6 @@ class _LinkButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = AppColors.of(context);
     return OutlinedButton.icon(
       onPressed: () async {
         final uri = Uri.parse(url);
@@ -346,6 +419,39 @@ class _LinkButton extends StatelessWidget {
         side: BorderSide(color: color.withAlpha(80)),
         padding:
             const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        minimumSize: Size.zero,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      ),
+    );
+  }
+}
+
+class _SupportButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String url;
+  final Color color;
+
+  const _SupportButton({
+    required this.icon,
+    required this.label,
+    required this.url,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton.icon(
+      onPressed: () async {
+        final uri = Uri.parse(url);
+        if (await canLaunchUrl(uri)) await launchUrl(uri);
+      },
+      icon: Icon(icon, size: 15),
+      label: Text(label, style: const TextStyle(fontSize: 12)),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: color,
+        side: BorderSide(color: color.withAlpha(100)),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         minimumSize: Size.zero,
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
       ),
