@@ -29,14 +29,35 @@ jobs:
       working-directory: flutter_app
       run: flutter build windows --release
 
-    - name: Inspect build output
+    - name: Debug build output structure
       working-directory: flutter_app
       run: |
-        Write-Host 'Listing flutter_app/build/windows:'
-        Get-ChildItem -Path build\windows -Recurse | Select-Object -First 50
+        Write-Host "Checking build directory structure..."
+        if (Test-Path "build/windows") {
+          Get-ChildItem -Path "build/windows" -Recurse -Force | Select-Object -First 100 | Format-Table FullName
+        } else {
+          Write-Host "build/windows directory not found!"
+        }
+        
+        Write-Host "`nLooking for executable..."
+        Get-ChildItem -Path "build" -Filter "*.exe" -Recurse
+
+    - name: Verify release artifacts exist
+      working-directory: flutter_app
+      run: |
+        $releasePath = "build/windows/runner/Release"
+        if (Test-Path $releasePath) {
+          Write-Host "Release folder found at: $releasePath"
+          Get-ChildItem -Path $releasePath -Force
+        } else {
+          Write-Host "WARNING: Release folder not found at $releasePath"
+          Write-Host "Searching for any Release folders..."
+          Get-ChildItem -Path "build" -Filter "Release" -Recurse -Directory
+        }
 
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
       with:
         name: pdf-merger-windows
         path: flutter_app/build/windows/runner/Release
+        if-no-files-found: warn
