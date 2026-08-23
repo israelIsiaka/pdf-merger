@@ -598,8 +598,18 @@ class PdfService {
       const macPath =
           '/Applications/LibreOffice.app/Contents/MacOS/soffice';
       if (File(macPath).existsSync()) return macPath;
+      return 'libreoffice';
     }
-    if (Platform.isWindows) return 'soffice.exe';
+
+    // Windows/Linux: bundled next to the app as <exeDir>/libreoffice/program/.
+    final exeDir = p.dirname(Platform.resolvedExecutable);
+    if (Platform.isWindows) {
+      final bundled = p.join(exeDir, 'libreoffice', 'program', 'soffice.exe');
+      if (File(bundled).existsSync()) return bundled;
+      return 'soffice.exe';
+    }
+    final bundled = p.join(exeDir, 'libreoffice', 'program', 'soffice');
+    if (File(bundled).existsSync()) return bundled;
     return 'libreoffice';
   }
 

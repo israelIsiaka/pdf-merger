@@ -19,6 +19,23 @@ jobs:
         run: flutter pub get
       - working-directory: flutter_app
         run: flutter build windows --release
+      - name: Bundle LibreOffice
+        working-directory: flutter_app
+        run: |
+          $ErrorActionPreference = "Stop"
+          $listing = (Invoke-WebRequest -Uri "https://download.documentfoundation.org/libreoffice/stable/" -UseBasicParsing).Content
+          $LO_VERSION = [regex]::Matches($listing, '(\d+\.\d+\.\d+)/"') |
+            ForEach-Object { $_.Groups[1].Value } | Sort-Object { [version]$_ } | Select-Object -Last 1
+          Write-Host "Bundling LibreOffice $LO_VERSION"
+          $msiUrl = "https://download.documentfoundation.org/libreoffice/stable/$LO_VERSION/win/x86_64/LibreOffice_${LO_VERSION}_Win_x86-64.msi"
+          Invoke-WebRequest -Uri $msiUrl -OutFile "$env:RUNNER_TEMP\libreoffice.msi"
+          $extractDir = "$env:RUNNER_TEMP\lo-extract"
+          Start-Process msiexec.exe -ArgumentList "/a `"$env:RUNNER_TEMP\libreoffice.msi`" /qn TARGETDIR=`"$extractDir`"" -Wait -NoNewWindow
+          $sofficeExe = Get-ChildItem -Path $extractDir -Recurse -Filter soffice.exe | Select-Object -First 1
+          if (-not $sofficeExe) { throw "soffice.exe not found after MSI extraction" }
+          $loRoot = $sofficeExe.Directory.Parent.FullName
+          $release = (Get-ChildItem -Path build/windows -Recurse -Filter pdf_merger.exe | Select-Object -First 1).Directory.FullName
+          Copy-Item -Path $loRoot -Destination "$release\libreoffice" -Recurse
       - name: Zip Release folder
         working-directory: flutter_app
         run: |
@@ -82,6 +99,25 @@ jobs:
         run: flutter pub get
       - working-directory: flutter_app
         run: flutter build linux --release
+      - name: Bundle LibreOffice
+        working-directory: flutter_app
+        run: |
+          set -e
+          LO_VERSION=$(curl -sf https://download.documentfoundation.org/libreoffice/stable/ \
+            | grep -oE '[0-9]+\.[0-9]+\.[0-9]+/"' | tr -d '"/' | sort -V | tail -1)
+          echo "Bundling LibreOffice $LO_VERSION"
+          curl -sfL --retry 3 -o /tmp/libreoffice.tar.gz \
+            "https://download.documentfoundation.org/libreoffice/stable/${LO_VERSION}/deb/x86_64/LibreOffice_${LO_VERSION}_Linux_x86-64_deb.tar.gz"
+          mkdir -p /tmp/lo-extract /tmp/lo-root
+          tar xzf /tmp/libreoffice.tar.gz -C /tmp/lo-extract
+          for deb in /tmp/lo-extract/*/DEBS/*.deb; do
+            dpkg-deb -x "$deb" /tmp/lo-root
+          done
+          loDir=$(find /tmp/lo-root/opt -maxdepth 1 -type d -name 'libreoffice*' | head -n1)
+          if [ -z "$loDir" ]; then echo "LibreOffice dir not found after deb extraction"; exit 1; fi
+          bundle=$(find build/linux -type d -name bundle | head -n1)
+          cp -r "$loDir" "$bundle/libreoffice"
+          chmod +x "$bundle/libreoffice/program/soffice" "$bundle/libreoffice/program/soffice.bin"
       - name: Tar bundle
         working-directory: flutter_app
         run: |
@@ -108,7 +144,8 @@ jobs:
           generate_release_notes: true
           body: |
             ## Downloads
-            - **macOS:** `pdf-merger-macos.zip` (LibreOffice for Word<->PDF is bundled in, nothing else to install)
+            LibreOffice (needed for Word<->PDF) is bundled into every build below, nothing extra to install.
+            - **macOS:** `pdf-merger-macos.zip`
             - **Windows:** `pdf-merger-windows.zip`
             - **Linux:** `pdf-merger-linux.tar.gz`
 
