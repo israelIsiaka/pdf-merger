@@ -505,10 +505,16 @@ class PdfService {
   // ---------------------------------------------------------------------------
   static Future<void> pdfToWord(String inputPath, String outputPath) async {
     final outDir = p.dirname(outputPath);
-    final result = await Process.run(
-      _libreOfficeExecutable(),
-      ['--headless', '--convert-to', 'docx', '--outdir', outDir, inputPath],
-    );
+    final ProcessResult result;
+    try {
+      result = await Process.run(
+        _libreOfficeExecutable(),
+        ['--headless', '--convert-to', 'docx', '--outdir', outDir, inputPath],
+      );
+    } on ProcessException {
+      throw Exception(
+          'LibreOffice not found. Install LibreOffice to use this feature.');
+    }
     if (result.exitCode != 0) {
       throw Exception(
           'LibreOffice not found or conversion failed. '
@@ -526,10 +532,16 @@ class PdfService {
   // ---------------------------------------------------------------------------
   static Future<void> wordToPdf(String inputPath, String outputPath) async {
     final outDir = p.dirname(outputPath);
-    final result = await Process.run(
-      _libreOfficeExecutable(),
-      ['--headless', '--convert-to', 'pdf', '--outdir', outDir, inputPath],
-    );
+    final ProcessResult result;
+    try {
+      result = await Process.run(
+        _libreOfficeExecutable(),
+        ['--headless', '--convert-to', 'pdf', '--outdir', outDir, inputPath],
+      );
+    } on ProcessException {
+      throw Exception(
+          'LibreOffice not found. Install LibreOffice to use this feature.');
+    }
     if (result.exitCode != 0) {
       throw Exception(
           'LibreOffice not found or conversion failed. '
@@ -572,11 +584,37 @@ class PdfService {
 
   static String _libreOfficeExecutable() {
     if (Platform.isMacOS) {
+      // Bundled inside the app (Contents/Resources/LibreOffice.app), if present.
+      final contentsDir =
+          p.dirname(p.dirname(Platform.resolvedExecutable));
+      final bundledApp =
+          p.join(contentsDir, 'Resources', 'LibreOffice.app');
+      final bundledPath =
+          p.join(bundledApp, 'Contents', 'MacOS', 'soffice');
+      if (File(bundledPath).existsSync()) {
+        _clearQuarantine(bundledApp);
+        return bundledPath;
+      }
       const macPath =
           '/Applications/LibreOffice.app/Contents/MacOS/soffice';
       if (File(macPath).existsSync()) return macPath;
     }
     if (Platform.isWindows) return 'soffice.exe';
     return 'libreoffice';
+  }
+
+  // Downloaded/zipped apps carry com.apple.quarantine, which Gatekeeper
+  // enforces even when a bundled binary is launched via Process.run rather
+  // than double-clicked. Strip it once so the bundled LibreOffice doesn't
+  // hit its own Gatekeeper prompt the first time it's used.
+  static bool _quarantineCleared = false;
+  static void _clearQuarantine(String appPath) {
+    if (_quarantineCleared) return;
+    _quarantineCleared = true;
+    try {
+      Process.runSync('xattr', ['-dr', 'com.apple.quarantine', appPath]);
+    } catch (_) {
+      // Best-effort; if this fails the user still gets a normal Gatekeeper prompt.
+    }
   }
 }

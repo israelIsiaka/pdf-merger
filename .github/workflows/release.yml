@@ -45,6 +45,18 @@ jobs:
         run: flutter pub get
       - working-directory: flutter_app
         run: flutter build macos --release
+      - name: Bundle LibreOffice
+        run: |
+          set -e
+          LO_VERSION=$(curl -sf https://download.documentfoundation.org/libreoffice/stable/ \
+            | grep -oE '[0-9]+\.[0-9]+\.[0-9]+/"' | tr -d '"/' | sort -V | tail -1)
+          echo "Bundling LibreOffice $LO_VERSION"
+          curl -sfL --retry 3 -o /tmp/libreoffice.dmg \
+            "https://download.documentfoundation.org/libreoffice/stable/${LO_VERSION}/mac/aarch64/LibreOffice_${LO_VERSION}_MacOS_aarch64.dmg"
+          hdiutil attach /tmp/libreoffice.dmg -nobrowse -mountpoint /Volumes/LO
+          cp -R "/Volumes/LO/LibreOffice.app" \
+            "flutter_app/build/macos/Build/Products/Release/pdf_merger.app/Contents/Resources/LibreOffice.app"
+          hdiutil detach /Volumes/LO
       - name: Zip .app bundle
         working-directory: flutter_app
         run: |
