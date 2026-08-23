@@ -106,3 +106,18 @@ jobs:
         with:
           files: artifacts/**/*
           generate_release_notes: true
+          body: |
+            ## Downloads
+            - **macOS:** `pdf-merger-macos.zip` (LibreOffice for Word<->PDF is bundled in, nothing else to install)
+            - **Windows:** `pdf-merger-windows.zip`
+            - **Linux:** `pdf-merger-linux.tar.gz`
+
+            ## First launch (one-time step)
+            These builds aren't code-signed, so your OS blocks them on first run. This is expected — bypass it once:
+
+            **macOS:** Right-click the app -> **Open** -> **Open** in the dialog.
+            If nothing happens: **System Settings -> Privacy & Security**, scroll down, click **Open Anyway**, then confirm.
+
+            **Windows:** Click **More info** on the SmartScreen popup, then **Run anyway**.
+
+            **Linux:** `chmod +x pdf_merger` if needed, then run the extracted binary.
