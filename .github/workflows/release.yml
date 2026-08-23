@@ -23,8 +23,8 @@ jobs:
         working-directory: flutter_app
         run: |
           $ErrorActionPreference = "Stop"
-          $exe = Get-ChildItem -Path build/windows -Recurse -Filter *.exe | Select-Object -First 1
-          if (-not $exe) { throw "No .exe found under build/windows" }
+          $exe = Get-ChildItem -Path build/windows -Recurse -Filter pdf_merger.exe | Select-Object -First 1
+          if (-not $exe) { throw "pdf_merger.exe not found under build/windows" }
           Compress-Archive -Path "$($exe.Directory.FullName)\*" -DestinationPath "pdf-merger-windows.zip" -Force
       - uses: actions/upload-artifact@v4
         with:
