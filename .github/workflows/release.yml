@@ -74,6 +74,12 @@ jobs:
           cp -R "/Volumes/LO/LibreOffice.app" \
             "flutter_app/build/macos/Build/Products/Release/pdf_merger.app/Contents/Resources/LibreOffice.app"
           hdiutil detach /Volumes/LO
+      - name: Re-sign app bundle
+        run: |
+          set -e
+          codesign --force -s - --timestamp=none \
+            "flutter_app/build/macos/Build/Products/Release/pdf_merger.app"
+          codesign --verify --strict "flutter_app/build/macos/Build/Products/Release/pdf_merger.app"
       - name: Zip .app bundle
         working-directory: flutter_app
         run: |
